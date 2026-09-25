@@ -3,6 +3,7 @@ package cm.kfokam48.presences.exercice.domaine;
 import cm.kfokam48.presences.etudiant.Etudiant;
 import cm.kfokam48.presences.etudiant.EtudiantService;
 import cm.kfokam48.presences.partage.erreur.Erreurs;
+import cm.kfokam48.presences.partage.erreur.TraducteurDeContraintes;
 import cm.kfokam48.presences.presence.domaine.PresenceRepository;
 import cm.kfokam48.presences.session.domaine.Session;
 import cm.kfokam48.presences.session.domaine.SessionRepository;
@@ -34,16 +35,19 @@ public class ExerciceService {
     private final PresenceRepository presences;
     private final EtudiantService etudiants;
     private final ValidateurDeLien validateur;
+    private final TraducteurDeContraintes traducteur;
     private final Clock horloge;
 
     public ExerciceService(ExerciceRepository exercices, SessionRepository sessions,
                            PresenceRepository presences, EtudiantService etudiants,
-                           ValidateurDeLien validateur, Clock horloge) {
+                           ValidateurDeLien validateur, TraducteurDeContraintes traducteur,
+                           Clock horloge) {
         this.exercices = exercices;
         this.sessions = sessions;
         this.presences = presences;
         this.etudiants = etudiants;
         this.validateur = validateur;
+        this.traducteur = traducteur;
         this.horloge = horloge;
     }
 
@@ -70,8 +74,10 @@ public class ExerciceService {
             throw Erreurs.exerciceDejaDepose();
         }
 
-        return exercices.save(
-                Exercice.deposer(session, etudiant, lienValide, Instant.now(horloge)));
+        // Même motif qu'au marquage de présence : le contrôle sert le cas courant,
+        // la contrainte tranche le cas concurrent, et son verdict devient RG7.
+        return traducteur.enTraduisantLesConflits(() -> exercices.saveAndFlush(
+                Exercice.deposer(session, etudiant, lienValide, Instant.now(horloge))));
     }
 
     /**

@@ -3,6 +3,7 @@ package cm.kfokam48.presences.presence.domaine;
 import cm.kfokam48.presences.etudiant.Etudiant;
 import cm.kfokam48.presences.etudiant.EtudiantService;
 import cm.kfokam48.presences.partage.erreur.Erreurs;
+import cm.kfokam48.presences.partage.erreur.TraducteurDeContraintes;
 import cm.kfokam48.presences.session.domaine.Session;
 import cm.kfokam48.presences.session.domaine.SessionRepository;
 import cm.kfokam48.presences.session.domaine.StatutSession;
@@ -37,14 +38,17 @@ public class PresenceService {
     private final SessionRepository sessions;
     private final EtudiantService etudiants;
     private final LimiteurDeTentatives limiteur;
+    private final TraducteurDeContraintes traducteur;
     private final Clock horloge;
 
     public PresenceService(PresenceRepository presences, SessionRepository sessions,
-                           EtudiantService etudiants, LimiteurDeTentatives limiteur, Clock horloge) {
+                           EtudiantService etudiants, LimiteurDeTentatives limiteur,
+                           TraducteurDeContraintes traducteur, Clock horloge) {
         this.presences = presences;
         this.sessions = sessions;
         this.etudiants = etudiants;
         this.limiteur = limiteur;
+        this.traducteur = traducteur;
         this.horloge = horloge;
     }
 
@@ -78,8 +82,11 @@ public class PresenceService {
         // RG6 — une réussite remet le compteur à zéro.
         limiteur.tracer(etudiant, codeNormalise, true, maintenant);
 
-        return presences.save(
-                Presence.enregistrer(session, etudiant, SourcePresence.ETUDIANT, maintenant));
+        // Le contrôle ci-dessus répond au cas courant ; sous concurrence, deux
+        // requêtes le franchissent ensemble et c'est la contrainte qui tranche.
+        // Son verdict est traduit en RG3, et non laissé remonter en erreur interne.
+        return traducteur.enTraduisantLesConflits(() -> presences.saveAndFlush(
+                Presence.enregistrer(session, etudiant, SourcePresence.ETUDIANT, maintenant)));
     }
 
     /**
@@ -108,8 +115,8 @@ public class PresenceService {
             throw Erreurs.dejaPresent();
         }
 
-        return presences.save(Presence.enregistrer(
-                session, etudiant, SourcePresence.FORMATEUR, Instant.now(horloge)));
+        return traducteur.enTraduisantLesConflits(() -> presences.saveAndFlush(
+                Presence.enregistrer(session, etudiant, SourcePresence.FORMATEUR, Instant.now(horloge))));
     }
 
     @Transactional(readOnly = true)

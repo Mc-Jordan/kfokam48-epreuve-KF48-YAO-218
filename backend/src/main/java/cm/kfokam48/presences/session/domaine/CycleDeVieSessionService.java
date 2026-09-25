@@ -4,6 +4,7 @@ import cm.kfokam48.presences.etudiant.Etudiant;
 import cm.kfokam48.presences.exercice.domaine.Exercice;
 import cm.kfokam48.presences.exercice.domaine.ExerciceRepository;
 import cm.kfokam48.presences.partage.erreur.Erreurs;
+import cm.kfokam48.presences.partage.erreur.TraducteurDeContraintes;
 import cm.kfokam48.presences.presence.domaine.Presence;
 import cm.kfokam48.presences.presence.domaine.PresenceRepository;
 import cm.kfokam48.presences.relecture.domaine.AttributionDesRelectures;
@@ -31,16 +32,19 @@ public class CycleDeVieSessionService {
     private final PresenceRepository presences;
     private final RelectureRepository relectures;
     private final AttributionDesRelectures attribution;
+    private final TraducteurDeContraintes traducteur;
     private final Clock horloge;
 
     public CycleDeVieSessionService(SessionRepository sessions, ExerciceRepository exercices,
                                     PresenceRepository presences, RelectureRepository relectures,
-                                    AttributionDesRelectures attribution, Clock horloge) {
+                                    AttributionDesRelectures attribution,
+                                    TraducteurDeContraintes traducteur, Clock horloge) {
         this.sessions = sessions;
         this.exercices = exercices;
         this.presences = presences;
         this.relectures = relectures;
         this.attribution = attribution;
+        this.traducteur = traducteur;
         this.horloge = horloge;
     }
 
@@ -71,12 +75,18 @@ public class CycleDeVieSessionService {
         AttributionDesRelectures.Resultat resultat =
                 attribution.attribuer(aAttribuer, presents, maintenant);
 
-        for (Relecture relecture : resultat.attribuees()) {
-            relectures.save(relecture);
-            Exercice exercice = relecture.getExercice();
-            exercice.enAttenteDeRelecture();
-            exercices.save(exercice);
-        }
+        // Deux clôtures concurrentes franchissent toutes deux le contrôle d'état :
+        // c'est alors uq_relectures_exercice qui tranche, et son verdict doit se
+        // lire SESSION_DEJA_CLOTUREE plutôt que comme une erreur interne.
+        traducteur.enTraduisantLesConflits(() -> {
+            for (Relecture relecture : resultat.attribuees()) {
+                relectures.saveAndFlush(relecture);
+                Exercice exercice = relecture.getExercice();
+                exercice.enAttenteDeRelecture();
+                exercices.save(exercice);
+            }
+            return null;
+        });
         for (Exercice orphelin : resultat.nonAttribuables()) {
             orphelin.devenirNonAttribuable();   // RG17
             exercices.save(orphelin);
