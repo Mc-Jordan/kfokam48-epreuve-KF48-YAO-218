@@ -36,7 +36,7 @@ public class RelectureService {
     public List<Relecture> listerPourRelecteur(Long relecteurId, StatutRelecture statut) {
         etudiants.parIdentifiant(relecteurId);   // 404 ETUDIANT_INCONNU plutôt qu'une liste vide trompeuse
 
-        List<Relecture> siennes = relectures.findByRelecteurIdOrderByAttribueeAtDesc(relecteurId);
+        List<Relecture> siennes = relectures.findAvecExerciceEtSessionParRelecteur(relecteurId);
         return statut == null ? siennes : siennes.stream().filter(r -> r.getStatut() == statut).toList();
     }
 
