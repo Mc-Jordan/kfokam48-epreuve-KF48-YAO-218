@@ -4,6 +4,7 @@ import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Etat, Requete, Succes, Vide } from '../composants/Etat';
 import { ChoixEtudiant } from '../composants/ChoixEtudiant';
+import { Revelation } from '../composants/Revelation';
 import type { LigneTableau, PresenceDetail, SessionOuverte, SessionResume, StatutSession }
   from '../api/types';
 
@@ -29,6 +30,7 @@ export default function EcranFormateur() {
       <h1>Formateur</h1>
       <OuvertureDeSeance onOuverte={sessions.recharger} />
 
+      <Revelation>
       <div className="carte">
         <h2>Séances de la promotion</h2>
         <Requete etat={sessions} quoi="des séances">
@@ -60,8 +62,9 @@ export default function EcranFormateur() {
           }
         </Requete>
       </div>
+      </Revelation>
 
-      <TableauRecapitulatif />
+      <Revelation retard={90}><TableauRecapitulatif /></Revelation>
     </section>
   );
 }
@@ -186,7 +189,9 @@ function LigneSeance({ session, onChange }: { session: SessionResume; onChange: 
           <td colSpan={6}>
             {message && <Succes>{message}</Succes>}
             {erreur && <Erreur erreur={erreur} />}
-            {detailOuvert && <DetailDesPresences session={session} />}
+            {detailOuvert && (
+              <div className="detail-deplie"><DetailDesPresences session={session} /></div>
+            )}
           </td>
         </tr>
       )}
