@@ -52,12 +52,34 @@ public class GestionnaireErreurs {
         return reponse(CodeErreur.CHAMP_MANQUANT, null);
     }
 
-    /** Paramètre de requête obligatoire absent, ou type incompatible. */
+    /**
+     * Paramètre obligatoire absent, type incompatible, ou corps illisible.
+     *
+     * <p>Un cas mérite un traitement à part : une note non entière. Le contrat
+     * impose {@code NOTE_INVALIDE} pour « note hors 0–20 <em>ou non entière</em> »,
+     * et répondre {@code CHAMP_MANQUANT} mentirait sur la nature de l'erreur.
+     * Le champ fautif est donc lu dans le chemin de désérialisation.</p>
+     */
     @ExceptionHandler({MissingServletRequestParameterException.class,
                        MethodArgumentTypeMismatchException.class,
                        HttpMessageNotReadableException.class})
     public ResponseEntity<ReponseErreur> requeteIllisible(Exception e) {
-        return reponse(CodeErreur.CHAMP_MANQUANT, null);
+        return reponse(champFautif(e).filter("note"::equals).isPresent()
+                ? CodeErreur.NOTE_INVALIDE
+                : CodeErreur.CHAMP_MANQUANT, null);
+    }
+
+    /** Le nom du champ visé par une erreur de désérialisation, quand Jackson le donne. */
+    private static java.util.Optional<String> champFautif(Throwable e) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof com.fasterxml.jackson.databind.exc.MismatchedInputException mismatch) {
+                return mismatch.getPath().stream()
+                        .map(com.fasterxml.jackson.databind.JsonMappingException.Reference::getFieldName)
+                        .filter(java.util.Objects::nonNull)
+                        .reduce((premier, dernier) -> dernier);
+            }
+        }
+        return java.util.Optional.empty();
     }
 
     /**

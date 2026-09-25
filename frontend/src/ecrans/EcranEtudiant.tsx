@@ -4,13 +4,13 @@ import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Requete } from '../composants/Etat';
 import { ChoixEtudiant } from '../composants/ChoixEtudiant';
-import type { SessionResume } from '../api/types';
+import type { RelectureRecue, SessionResume } from '../api/types';
 
 /**
- * Écran étudiant (contrainte F2) — marquer sa présence et déposer son exercice.
+ * Écran étudiant (contrainte F2) — marquer sa présence, déposer son exercice,
+ * consulter la note reçue.
  *
- * Le remplacement du lien et la consultation de sa note viennent avec les
- * tickets #11 et #13.
+ * Le remplacement du lien vient avec le ticket #11.
  */
 
 /** Le choix de la promotion relève d'un écran d'administration, hors périmètre (§3). */
@@ -30,6 +30,7 @@ export default function EcranEtudiant() {
         <>
           <MarquageDePresence etudiantId={etudiantId} />
           <DepotDExercice etudiantId={etudiantId} />
+          <MaNote />
         </>
       )}
     </section>
@@ -157,6 +158,58 @@ function DepotDExercice({ etudiantId }: { etudiantId: number }) {
 
       {erreur && <Erreur erreur={erreur} />}
       {statut && <p role="status">Exercice déposé. État : {statut}.</p>}
+    </form>
+  );
+}
+
+function MaNote() {
+  const [exerciceId, setExerciceId] = useState('');
+  const [recue, setRecue] = useState<RelectureRecue | null>(null);
+  const [erreur, setErreur] = useState<ErreurApi | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  async function consulter(evenement: React.FormEvent) {
+    evenement.preventDefault();
+    setEnCours(true);
+    setErreur(null);
+    setRecue(null);
+    try {
+      setRecue(await operations.consulterRelectureRecue(Number(exerciceId)));
+    } catch (e) {
+      setErreur(e as ErreurApi);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <form onSubmit={consulter}>
+      <h2>Ma note</h2>
+      <label htmlFor="exercice">Numéro de mon exercice</label>{' '}
+      <input id="exercice" type="number" min={1} value={exerciceId}
+             onChange={(e) => setExerciceId(e.target.value)} required />{' '}
+      <button type="submit" disabled={enCours || exerciceId === ''}>
+        {enCours ? 'Recherche…' : 'Voir'}
+      </button>
+
+      {erreur && <Erreur erreur={erreur} />}
+
+      {recue && (
+        <div role="status">
+          {/* RG22 — l'identité du relecteur n'est ni affichée, ni même reçue :
+              le schéma de réponse ne la comporte pas. */}
+          {recue.statut === 'RELU' ? (
+            <>
+              <p><strong>Note : {recue.note} / 20</strong></p>
+              <p>{recue.commentaire}</p>
+            </>
+          ) : recue.statut === 'NON_ATTRIBUABLE' ? (
+            <p>Aucun relecteur ne pouvait être désigné pour cet exercice.</p>
+          ) : (
+            <p>Votre exercice attend encore sa relecture.</p>
+          )}
+        </div>
+      )}
     </form>
   );
 }
