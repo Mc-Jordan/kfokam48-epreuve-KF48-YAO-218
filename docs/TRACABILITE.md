@@ -1,7 +1,7 @@
 # Matrice de traçabilité
 
 Chaque exigence se relie à ses règles de gestion, aux opérations d'API qui la portent,
-au ticket qui la livre et au diagramme qui la décrit. **Une ligne incomplète signale un
+à l'issue qui la livre et au diagramme qui la décrit. **Une ligne incomplète signale un
 manque réel** : elle est traitée, pas laissée en l'état.
 
 Références : `EFx` et `RGx` renvoient à [`CAHIER_DES_CHARGES.md`](CAHIER_DES_CHARGES.md),
