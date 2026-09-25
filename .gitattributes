@@ -1,0 +1,20 @@
+# Normalisation des fins de ligne : LF partout dans le depot.
+* text=auto eol=lf
+
+*.sh      text eol=lf
+mvnw      text eol=lf
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+mvnw.cmd  text eol=crlf
+
+*.jar  binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+
+# Comptage des langages GitHub : la doc ne doit pas ecraser le code.
+*.md          linguist-documentation
+docs/**       linguist-documentation
+api/*.yaml    linguist-detectable

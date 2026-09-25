@@ -1,0 +1,46 @@
+name: Anomalie
+description: Un comportement observé qui contredit une règle de gestion ou le contrat d'API.
+title: "[bug] "
+labels: ["bug", "must"]
+body:
+  - type: textarea
+    id: observe
+    attributes:
+      label: Comportement observé
+    validations:
+      required: true
+
+  - type: textarea
+    id: attendu
+    attributes:
+      label: Comportement attendu
+      description: Cite la règle de gestion ou la clause du contrat qui fonde cette attente.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Étapes de reproduction
+      description: Numérotées. Un correcteur doit pouvoir reproduire sans rien deviner.
+      placeholder: |
+        1. Ouvrir une session à 10h00
+        2. Attendre 16 minutes
+        3. POST /api/presences avec ce code
+    validations:
+      required: true
+
+  - type: input
+    id: regle
+    attributes:
+      label: Règle de gestion violée
+      placeholder: RG1
+    validations:
+      required: true
+
+  - type: input
+    id: code_erreur
+    attributes:
+      label: Code d'erreur du contrat concerné
+      description: Identifiant stable en majuscules, tel que défini dans api/contrat.yaml.
+      placeholder: CODE_EXPIRE

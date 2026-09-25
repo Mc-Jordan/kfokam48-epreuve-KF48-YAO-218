@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Cahier des charges
+    url: https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/blob/main/docs/CAHIER_DES_CHARGES.md
+    about: Exigences EFx et règles de gestion RGx à citer dans chaque ticket.

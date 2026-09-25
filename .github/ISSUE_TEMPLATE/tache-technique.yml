@@ -1,0 +1,29 @@
+name: Tâche technique
+description: Un travail nécessaire qui ne produit pas directement un résultat utilisateur.
+title: "[tech] "
+labels: ["infra"]
+body:
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: Ce que cette tâche rend possible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pourquoi
+    attributes:
+      label: Pourquoi maintenant
+      description: Ce qu'elle débloque, ou ce qu'elle coûterait si elle était repoussée.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Critère de vérification
+      description: Comment on constate qu'elle est faite. Une commande vaut mieux qu'une affirmation.
+      placeholder: "`docker compose up` démarre les trois services et le tableau répond en 200."
+    validations:
+      required: true
