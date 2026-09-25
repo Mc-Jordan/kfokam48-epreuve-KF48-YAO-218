@@ -234,6 +234,65 @@ class PresenceIT extends TestPostgres {
                 .content("{ \"sessionId\": %d, \"etudiantId\": %d }".formatted(sessionId, etudiantId));
     }
 
+    // --- Limitation des tentatives (EF3, RG6, Q4) ---------------------------
+
+    @Test
+    @DisplayName("429 TROP_DE_TENTATIVES — RG6, après cinq codes erronés")
+    void devraitBloquerApresCinqEchecs_RG6() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            mockMvc.perform(marquer("FAUX%02d".formatted(i), awaId))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CODE_INCONNU"));
+        }
+
+        mockMvc.perform(marquer("FAUX99", awaId))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TROP_DE_TENTATIVES"));
+    }
+
+    @Test
+    @DisplayName("RG6, Q4 — un étudiant bloqué reçoit 429 même avec le BON code")
+    void devraitBloquerMemeAvecLeBonCode_RG6() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            mockMvc.perform(marquer("FAUX%02d".formatted(i), awaId))
+                    .andExpect(status().isBadRequest());
+        }
+
+        // C'est tout l'objet de Q4 : si le bon code passait, l'étudiant bloqué
+        // saurait qu'il l'a trouvé, et la limitation ne servirait à rien.
+        mockMvc.perform(marquer(code, awaId))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TROP_DE_TENTATIVES"));
+    }
+
+    @Test
+    @DisplayName("RG6 — le blocage est individuel : un autre étudiant n'est pas affecté")
+    void devraitNeBloquerQueLEtudiantFautif_RG6() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            mockMvc.perform(marquer("FAUX%02d".formatted(i), awaId))
+                    .andExpect(status().isBadRequest());
+        }
+
+        mockMvc.perform(marquer(code, biloaId)).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("RG6 — une réussite intercalée remet le compteur à zéro")
+    void devraitRemettreLeCompteurAZeroApresUneReussite_RG6() throws Exception {
+        for (int i = 1; i <= 4; i++) {
+            mockMvc.perform(marquer("FAUX%02d".formatted(i), awaId))
+                    .andExpect(status().isBadRequest());
+        }
+        mockMvc.perform(marquer(code, awaId)).andExpect(status().isCreated());
+
+        // Quatre nouveaux échecs après la réussite : toujours pas bloqué.
+        for (int i = 5; i <= 8; i++) {
+            mockMvc.perform(marquer("FAUX%02d".formatted(i), awaId))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("CODE_INCONNU"));
+        }
+    }
+
     private org.springframework.test.web.servlet.RequestBuilder marquer(String code, Long etudiantId) {
         return post("/api/presences")
                 .contentType(MediaType.APPLICATION_JSON)
