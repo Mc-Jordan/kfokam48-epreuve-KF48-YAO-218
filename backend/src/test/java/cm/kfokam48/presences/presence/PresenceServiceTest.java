@@ -60,6 +60,7 @@ class PresenceServiceTest {
 
     private PresenceService serviceA(Instant maintenant) {
         return new PresenceService(presences, sessions, etudiants, limiteur,
+                new cm.kfokam48.presences.partage.erreur.TraducteurDeContraintes(),
                 Clock.fixed(maintenant, ZoneOffset.UTC));
     }
 
@@ -71,7 +72,7 @@ class PresenceServiceTest {
 
         when(etudiants.parIdentifiant(anyLong())).thenReturn(etudiant);
         when(sessions.findByCode(CODE)).thenReturn(Optional.of(session));
-        when(presences.save(any(Presence.class))).thenAnswer(appel -> appel.getArgument(0));
+        when(presences.saveAndFlush(any(Presence.class))).thenAnswer(appel -> appel.getArgument(0));
     }
 
     @Test
@@ -92,7 +93,7 @@ class PresenceServiceTest {
 
         assertThatCodeErreur(() -> serviceA(MIDI).marquer("ZZZZZZ", 1L))
                 .isEqualTo(CodeErreur.CODE_INCONNU);
-        verify(presences, never()).save(any());
+        verify(presences, never()).saveAndFlush(any());
     }
 
     @Test
@@ -100,7 +101,7 @@ class PresenceServiceTest {
     void devraitRefuserUnCodeExpire_RG1() {
         assertThatCodeErreur(() -> serviceA(MIDI.plus(Duration.ofMinutes(15))).marquer(CODE, 1L))
                 .isEqualTo(CodeErreur.CODE_EXPIRE);
-        verify(presences, never()).save(any());
+        verify(presences, never()).saveAndFlush(any());
     }
 
     @Test
@@ -116,7 +117,7 @@ class PresenceServiceTest {
 
         assertThatCodeErreur(() -> serviceA(MIDI).marquer(CODE, 1L))
                 .isEqualTo(CodeErreur.DEJA_PRESENT);
-        verify(presences, never()).save(any());
+        verify(presences, never()).saveAndFlush(any());
     }
 
     @Test
@@ -157,7 +158,7 @@ class PresenceServiceTest {
 
         assertThatCodeErreur(() -> serviceA(MIDI).marquer(CODE, 404L))
                 .isEqualTo(CodeErreur.ETUDIANT_INCONNU);
-        verify(presences, never()).save(any());
+        verify(presences, never()).saveAndFlush(any());
     }
 
     /** Exécute l'action, exige une exception métier, et rend son code pour l'assertion. */

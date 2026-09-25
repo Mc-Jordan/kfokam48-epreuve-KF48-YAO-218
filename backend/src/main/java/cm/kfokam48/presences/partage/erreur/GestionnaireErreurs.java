@@ -1,6 +1,7 @@
 package cm.kfokam48.presences.partage.erreur;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,12 @@ import java.util.stream.Collectors;
 public class GestionnaireErreurs {
 
     private static final Logger journal = LoggerFactory.getLogger(GestionnaireErreurs.class);
+
+    private final TraducteurDeContraintes traducteur;
+
+    public GestionnaireErreurs(TraducteurDeContraintes traducteur) {
+        this.traducteur = traducteur;
+    }
 
     /** Les erreurs métier : le code et le statut viennent de l'exception elle-même. */
     @ExceptionHandler(ExceptionMetier.class)
@@ -96,6 +103,29 @@ public class GestionnaireErreurs {
     public ResponseEntity<ReponseErreur> verbeNonSupporte(HttpRequestMethodNotSupportedException e) {
         return reponse(CodeErreur.METHODE_NON_AUTORISEE,
                 "Cette opération n'accepte pas le verbe " + e.getMethod() + ".");
+    }
+
+    /**
+     * Violation d'une contrainte d'unicité.
+     *
+     * <p>Sous concurrence, deux requêtes peuvent franchir le même contrôle applicatif
+     * avant que l'une n'écrive : c'est alors la base qui tranche. Son verdict est
+     * traduit dans le langage du contrat — sans quoi le client reçoit
+     * {@code 500 ERREUR_INTERNE} là où la règle dit {@code 409}.</p>
+     *
+     * <p>Une contrainte que nous ne connaissons pas retombe sur l'erreur interne :
+     * mieux vaut l'avouer que d'inventer un code qui mentirait sur la cause.</p>
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ReponseErreur> contrainteViolee(DataIntegrityViolationException e,
+                                                          HttpServletRequest requete) {
+        return traducteur.traduire(e)
+                .map(code -> reponse(code, null))
+                .orElseGet(() -> {
+                    journal.error("Contrainte violée sans correspondance sur {} {}",
+                            requete.getMethod(), requete.getRequestURI(), e);
+                    return reponse(CodeErreur.ERREUR_INTERNE, null);
+                });
     }
 
     /**
