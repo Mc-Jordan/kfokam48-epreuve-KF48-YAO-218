@@ -1,0 +1,18 @@
+# =============================================================================
+#  Surcharges de developpement, appliquees automatiquement par docker compose.
+#  Le port de la base est expose pour qu'un client SQL puisse s'y connecter, et
+#  les journaux de Flyway et du web sont plus bavards.
+#
+#  En production, on demarre avec :
+#      docker compose -f docker-compose.yml up
+# =============================================================================
+
+services:
+  db:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    environment:
+      LOGGING_LEVEL_ORG_FLYWAYDB: DEBUG
+      LOGGING_LEVEL_CM_KFOKAM48_PRESENCES: DEBUG
