@@ -133,35 +133,135 @@ Douze exigences. Les sept **Must** constituent le périmètre du jalon `v0.1`.
 
 ## 7. Zones d'ombre, hypothèses et contradictions
 
-**Points que la demande ne tranche pas :**
+### Réponses écartées
 
-| Point | Réponse client (Qx) ou hypothèse | Décision retenue | Conséquence |
-|---|---|---|---|
-| | | | |
+Une seule des seize réponses n'apporte rien d'exploitable.
 
-**Contradictions relevées :**
+| Réponse | Pourquoi elle est écartée |
+|---|---|
+| `Q3` — « Peut-on marquer sa présence après la fin de la session ? Non. » | Elle introduit un repère temporel — la « fin de la session » — qui n'existe ni dans le contrat d'API, qui ne connaît que `ouvertureAt` et `expirationAt`, ni dans aucune autre réponse. Et elle est déjà satisfaite : le marquage exigeant un code valide et le code mourant au bout de quinze minutes (`Q1`), la présence tardive est **déjà** impossible par `RG1`. L'appliquer littéralement obligerait à inventer une donnée que personne n'a demandée |
+
+### Contradictions relevées
 
 | Réponses en conflit | Ce que j'ai choisi | Pourquoi |
 |---|---|---|
-| | | |
+| `Q10` — « le relecteur peut corriger sa note tant que le formateur n'a pas clôturé la session » **contre** `Q15` — « la note est définitive une fois envoyée, il ne peut plus y revenir » | **`Q10`** : la relecture reste modifiable, jusqu'à un acte explicite du formateur (`RG20`, `RG21`) | `Q10` décrit un comportement daté et vérifiable, borné par un événement de gestion réel ; `Q15` n'énonce qu'une intention morale — « c'est plus honnête pour tout le monde » — sans dire à quel instant elle s'applique. `Q11` confirme par ailleurs que le formateur pilote la fin de vie d'une session. Un client qui affirme deux choses opposées veut le plus souvent la plus permissive, assortie d'un point de non-retour : c'est exactement ce que produit la finalisation. **`Q15` n'est pas abandonnée, elle est déplacée** : la note devient définitive, mais à la finalisation plutôt qu'à l'envoi |
+| Le mot **« clôturer »** désigne deux actes différents : en `Q12` il ferme les dépôts, en `Q10` il met fin aux corrections. Combiné à l'attribution des relecteurs au moment de la clôture, un seul événement rendrait `Q10` inapplicable — les relectures n'existeraient qu'après lui | **Deux événements distincts** : la **clôture** ferme les dépôts et déclenche l'attribution ; la **finalisation** fige les relectures (`RG12`) | Le client emploie un seul mot pour deux actes de gestion qui ne peuvent pas être simultanés. Les nommer séparément est le seul moyen de satisfaire `Q10` et `Q12` en même temps, sans trahir ni l'une ni l'autre. Le coût est d'un état de plus dans le cycle de vie et d'un bouton de plus côté formateur |
+
+### Points que la demande ne tranche pas
+
+| Point | Réponse client (`Qx`) ou hypothèse | Décision retenue | Conséquence |
+|---|---|---|---|
+| **Aucun relecteur éligible au moment de la clôture** — un seul étudiant présent, ou tous déjà pourvus | `Q7` dit qui peut être tiré, `Q5` exclut l'auteur, `Q6` impose l'unicité ; aucune réponse ne dit ce qu'il advient quand le vivier est vide. **C'est le trou que personne n'a comblé** | L'exercice prend l'état **`NON_ATTRIBUABLE`**, distinct de l'attente, et terminal : l'attribution n'ayant lieu qu'à la clôture, aucune présence nouvelle ne peut plus survenir pour la rattraper (`RG17`) | Un état supplémentaire dans `D4` et une colonne de statut à quatre valeurs. Le tableau du formateur distingue « personne n'a encore relu » de « personne ne pouvait relire » — sans quoi `Q11` lui cacherait la vraie cause |
+| **Moment du tirage au sort** | `Q7` dit qui, jamais quand | **À la clôture de la session** (`RG13`) | Le vivier des présents et l'ensemble des dépôts sont alors complets : le tirage est équitable et s'effectue en une passe unique. Effet de bord bienvenu : `Q13` devient limpide, puisque aucune relecture n'a pu commencer avant la clôture, le lien est librement remplaçable jusque-là (`RG10`). Contrepartie assumée : rien ne se relit tant que le formateur n'a pas clôturé |
+| **Un étudiant jamais présent peut-il déposer un exercice ?** | `Q12` autorise le dépôt tardif, `Q7` réserve la relecture aux présents ; le croisement n'est traité nulle part | **Non** : le dépôt exige une présence enregistrée (`RG8`), d'où un `403 NON_PRESENT` | Garantit qu'il y a toujours au moins autant de présents que d'exercices, donc qu'une répartition sans doublon existe (`RG16`). L'étudiant qui a eu un souci de téléphone n'est pas pénalisé : `Q14` donne au formateur la soupape pour l'ajouter à la main |
+| **Portée du blocage après cinq erreurs** | `Q4` dit « bloquez-le » sans dire qui, ni par rapport à quoi | Le blocage porte sur **l'étudiant**, toutes sessions confondues, pour deux minutes (`RG6`) | Le plus proche du « le » du client et le plus simple à tester. Bloquer par code serait inopérant — c'est justement le code que l'étudiant cherche ; bloquer par adresse réseau punirait toute une salle partageant la même connexion |
+| **Aucun code HTTP au contrat ne porte le blocage de `Q4`** | `POST /api/presences` n'admet que `400`, `409` et `410` | Ajout d'un **`429 TROP_DE_TENTATIVES`** sur cette opération | Décision la plus risquée du document, donc écrite ici. Les trois codes imposés restent en place et conservent exactement leur sémantique : aucun cas imposé n'est modifié. Refuser d'implémenter `Q4` coûterait une exigence entière ; réutiliser `400` reviendrait à mentir sur la nature de l'erreur. Le `429` est sémantiquement juste et documenté au contrat |
+| **Sens du `409 RELECTURE_DEJA_RENDUE` une fois `Q10` retenue** | Le contrat prévoit ce conflit sans dire quand il survient | Il survient **après la finalisation**, pas au second envoi (`RG20`, `RG21`) | Le code d'erreur imposé est conservé à l'identique, seul son instant de déclenchement est précisé. Avant la finalisation, un second envoi renvoie `200` : c'est une correction, pas un conflit |
+| **Le tableau demandé en `Q16` est plus fin que celui du contrat** | `Q16` veut « sa présence à chaque session » ; `GET /api/tableau` impose `presences: integer`, un simple compteur | Le contrat imposé n'est pas modifié. Le détail par session est servi par une **opération supplémentaire** | Le formateur obtient les deux vues : l'agrégat par le tableau imposé, le détail par session à la demande. Aucune opération imposée n'est altérée |
+| **Comment l'étudiant choisit son nom** | `Q1` évoque une liste, sans dire d'où elle vient | Une opération de **listage des étudiants d'une promotion** est ajoutée au contrat | Sans elle, `Q1` est irréalisable : les trois écrans en dépendent |
+| **Comment l'auteur voit sa note** | `Q8` promet note et commentaire ; aucune opération du contrat ne les expose à l'étudiant | Une opération de **consultation de la relecture d'un exercice** est ajoutée, qui n'expose jamais `relecteur_id` | L'anonymat de `Q8` est tenu par construction, au niveau du format de réponse, et non par une règle applicative qu'on peut oublier |
+| **Comment le relecteur sait ce qu'il doit relire** | Aucune réponse ne le dit ; `Q16` ne compte ces relectures que pour le formateur | Une opération de **listage des relectures d'un relecteur** est ajoutée | Sans elle, l'écran relecteur exigé par la contrainte `F2` n'a aucune source de données |
 
 *Une hypothèse écrite est toujours acceptée. Une hypothèse silencieuse est une faute.*
 
 ## 8. Contraintes techniques
 
-*Reprends les contraintes B1 à B6 et F1 à F3 du sujet, et ajoute celles que tu t'imposes toi-même (base de données choisie, gestion des migrations, stratégie de tests).*
+### Imposées par le sujet
+
+| Réf | Contrainte |
+|---|---|
+| `B1` | Java 17 ou plus, Maven, wrapper `mvnw` commité |
+| `B2` | Le contrat `api/contrat.yaml` est respecté à la lettre : chemins, verbes, codes de statut, format d'erreur |
+| `B3` | Séparation des couches contrôleur / service / repository ; aucune requête en base depuis un contrôleur, aucune entité JPA exposée en JSON — passage obligé par des DTO |
+| `B4` | Validation des entrées et gestion centralisée des erreurs par `@RestControllerAdvice` ; aucune trace d'exécution renvoyée au client |
+| `B5` | Schéma versionné par Flyway, migrations commitées, `ddl-auto` interdit hors tests |
+| `B6` | Un test unitaire sur une règle métier réelle et un test d'intégration sur un point d'entrée, exécutables sur un poste vierge |
+| `F1` | Framework frontend déclaré et justifié dans le `README`, build fonctionnel |
+| `F2` | Trois écrans : formateur, étudiant, relecteur |
+| `F3` | Appels API dans une couche dédiée, états de chargement et d'erreur gérés, aucune règle métier dupliquée côté client |
+
+### Que je m'impose
+
+| Domaine | Choix | Motif |
+|---|---|---|
+| Exécution | Java 21 (LTS), Spring Boot 3 | Version installée et supportée ; satisfait `B1` avec marge |
+| Base de données | PostgreSQL 16 | Types `enum` et contraintes d'unicité composites nécessaires à `RG3`, `RG7` et `RG15` |
+| Migrations | Flyway, migrations SQL numérotées `V1__`, `V2__`… | `B5`. Le schéma est versionné **avant** l'étape 3, qui touchera la base |
+| Tests | JUnit 5 et Mockito pour l'unitaire, `@SpringBootTest` et Testcontainers PostgreSQL pour l'intégration | `B6` et `ENF7` : aucune base locale requise |
+| Frontend | React 18, Vite, TypeScript ; couche `src/api/` unique | `F1` et `F3` |
+| Conteneurisation | Dockerfile multi-étapes par service, utilisateur non root, `docker compose up` comme commande unique | `ENF5` |
+| Intégration continue | GitHub Actions sur chaque pull request, analyse SonarCloud avec porte de qualité bloquante | Hors barème, mais c'est le cycle de vie que le sujet évalue en filigrane |
+| Données de démonstration | Migration Flyway dédiée, isolée des migrations de schéma | Un correcteur qui ouvre une application vide ne peut rien vérifier |
+
+### Codes d'erreur stables du projet
+
+Ils sont la traduction directe des règles de gestion et devront correspondre un pour un à ceux que produira le `@RestControllerAdvice`.
+
+| Code | Statut | Règle | Où |
+|---|---|---|---|
+| `CHAMP_MANQUANT` | 400 | `RG25` | toutes les opérations avec corps |
+| `CODE_INCONNU` | 400 | `RG2` | `POST /api/presences` |
+| `DEJA_PRESENT` | 409 | `RG3` | `POST /api/presences`, présence manuelle |
+| `CODE_EXPIRE` | 410 | `RG1` | `POST /api/presences` |
+| `TROP_DE_TENTATIVES` | 429 | `RG6` | `POST /api/presences` |
+| `LIEN_INVALIDE` | 400 | `RG9` | dépôt et remplacement d'exercice |
+| `EXERCICE_DEJA_DEPOSE` | 409 | `RG7` | `POST /api/exercices` |
+| `NON_PRESENT` | 403 | `RG8` | `POST /api/exercices` |
+| `NOTE_INVALIDE` | 400 | `RG18` | `POST /api/relectures/{id}` |
+| `AUTO_RELECTURE` | 403 | `RG19` | `POST /api/relectures/{id}` |
+| `RELECTURE_DEJA_RENDUE` | 409 | `RG21` | `POST /api/relectures/{id}`, après finalisation |
+| `PROMOTION_INCONNUE` | 404 | — | `GET /api/tableau`, listage des étudiants |
+| `SESSION_INCONNUE` | 404 | — | opérations portant un identifiant de session |
+| `SESSION_FERMEE` | 409 | `RG11`, `RG5` | dépôt et présence manuelle après clôture |
+| `SESSION_DEJA_CLOTUREE` | 409 | `RG12` | clôture |
+| `SESSION_NON_CLOTUREE` | 409 | `RG12` | finalisation |
+| `SESSION_DEJA_FINALISEE` | 409 | `RG12` | finalisation |
+| `EXERCICE_INCONNU` | 404 | — | remplacement, consultation de relecture |
+| `REMPLACEMENT_IMPOSSIBLE` | 409 | `RG10` | remplacement de lien après clôture |
+| `ETUDIANT_INCONNU` | 404 | — | listage des relectures, présence manuelle |
+| `RELECTURE_INCONNUE` | 404 | — | `POST /api/relectures/{id}` |
 
 ## 9. Livrables
 
--
+- `docs/CAHIER_DES_CHARGES.md` — le présent document, tenu à jour après l'étape 3
+- `docs/diagrammes/D1-cas-utilisation.md` — acteurs et cas d'utilisation
+- `docs/diagrammes/D2-modele-donnees.md` — modèle de données, aligné sur les migrations Flyway
+- `docs/diagrammes/D3-sequence-presence.md` — séquence du marquage de présence, cas nominal et cas d'erreur
+- `docs/diagrammes/D4-etats-exercice.md` — cycle de vie d'un exercice
+- `docs/TRACABILITE.md` — matrice exigence / règle / opération / issue / diagramme
+- `docs/JOURNAL.md` — journal de bord, une entrée par étape
+- `docs/adr/` — décisions d'architecture
+- `api/contrat.yaml` — contrat d'API, les cinq opérations imposées et les opérations ajoutées
+- `backend/` — service Spring Boot, migrations Flyway, tests
+- `frontend/` — application React, trois écrans
+- `docker-compose.yml` et les `Dockerfile` des deux services
+- `.github/workflows/` — intégration continue et analyse de qualité
+- `README.md` testé depuis un clone vierge, `CHANGELOG.md`, `CONTRIBUTING.md`
+- Le backlog, sous forme d'issues sur le dépôt, et les pull requests correspondantes
 
 ## 10. Démarche prévue
 
-*Comment tu comptes mener les six étapes : dans quel ordre, ce que tu vises à chaque jalon, ce que tu feras si tu prends du retard.*
+| Étape | Ce que je vise | Repère |
+|---|---|---|
+| **1** | Le présent document, les quatre diagrammes, le contrat figé, le backlog en issues | `[JALON] analyse` |
+| **2** | Les sept exigences `Must`, une branche et une pull request par ticket, socle technique en premier ticket | `[JALON] v0.1`, étiquette `v0.1` |
+| **3** | Ouvrir l'enveloppe, ouvrir une issue **avant** de coder, reproduire le bug, versionner la migration, mettre à jour le contrat, re-prioriser par écrit, séparer le correctif de l'évolution, **corriger ce document et les diagrammes** | entrée au journal des révisions |
+| **4** | Les `Should` restants selon le temps disponible, `CHANGELOG` cohérent, `README` testé depuis un clone vierge, backlog restant trié | `[JALON] v1.0`, étiquette `v1.0` |
+| **5** | Épreuve Git, sur un second dépôt strictement séparé | — |
+| **6** | Relever les deux hash, vérifier les deux dépôts en navigation privée, soumettre | — |
+
+**Si je prends du retard**, j'abandonne dans cet ordre, et je l'écris : `EF11` (consultation de sa note par l'étudiant — le formateur la voit déjà), puis `EF10` (finalisation — les relectures restent modifiables, ce qui est le comportement par défaut de `Q10`), puis `EF3` (limitation des tentatives — dégradation de confort, pas de blocage fonctionnel), puis `EF6` (remplacement du lien). **Je n'abandonne jamais** un `Must`, ni la mise à jour de l'analyse après l'étape 3 : le produit pèse quinze points, l'analyse trente-huit.
 
 **Definition of Done — un ticket est terminé quand :**
--
--
+
+- Ses critères d'acceptation sont vérifiés un par un, et non supposés
+- Les règles `RGx` qu'il applique sont citées dans au moins un test nommé d'après elles
+- Le contrat d'API est respecté, codes d'erreur compris
+- Les tests passent en local et en intégration continue
+- La documentation touchée est à jour — cahier des charges, diagrammes, `README`
+- La pull request est fusionnée en `--no-ff` et l'issue fermée par le commit
+- `main` est sain
 
 ---
 
@@ -169,6 +269,6 @@ Douze exigences. Les sept **Must** constituent le périmètre du jalon `v0.1`.
 
 | Version | Quand | Ce qui a changé et pourquoi |
 |---|---|---|
-| 1 | | Version initiale |
+| 1 | 25 septembre 2026 | Version initiale. Contradiction `Q10` / `Q15` tranchée en faveur de `Q10`, `Q15` déplacée sur la finalisation. Trois trous comblés : vivier de relecteurs vide, moment du tirage, dépôt sans présence. `Q3` écartée |
 
-*L'étape 3 rendra une partie de ce document faux. Reviens le corriger et note-le ici — un cahier des charges périmé est un cahier des charges mort.*
+*L'étape 3 rendra une partie de ce document faux. Il faudra revenir le corriger et le noter ici.*
