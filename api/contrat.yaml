@@ -515,6 +515,8 @@ components:
 #  ETUDIANT_INCONNU            404    -     presence manuelle, GET /api/relectures
 #  EXERCICE_INCONNU            404    -     PUT /api/exercices/{id}, GET .../relecture
 #  RELECTURE_INCONNUE          404    -     POST /api/relectures/{id}
+#  RESSOURCE_INCONNUE          404   RG25   toute route inexistante
+#  METHODE_NON_AUTORISEE       405   RG25   verbe non supporte sur une route existante
 #  DEJA_PRESENT                409   RG3    POST /api/presences, presence manuelle
 #  EXERCICE_DEJA_DEPOSE        409   RG7    POST /api/exercices
 #  RELECTURE_DEJA_RENDUE       409   RG21   POST /api/relectures/{id}, apres finalisation
@@ -525,6 +527,7 @@ components:
 #  REMPLACEMENT_IMPOSSIBLE     409   RG10   PUT /api/exercices/{id}
 #  CODE_EXPIRE                 410   RG1    POST /api/presences
 #  TROP_DE_TENTATIVES          429   RG6    POST /api/presences
+#  ERREUR_INTERNE              500   RG25   filet de securite, aucune trace d'execution renvoyee
 #
 #  Note sur RELECTURE_DEJA_RENDUE : la contradiction Q10 / Q15 ayant ete
 #  tranchee en faveur de Q10, ce conflit ne survient pas au second envoi
