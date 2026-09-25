@@ -2,7 +2,10 @@ package cm.kfokam48.presences.session.api;
 
 import cm.kfokam48.presences.session.api.dto.OuvertureSessionRequete;
 import cm.kfokam48.presences.session.api.dto.SessionOuverteReponse;
+import cm.kfokam48.presences.session.api.dto.ResultatClotureReponse;
+import cm.kfokam48.presences.session.api.dto.ResultatFinalisationReponse;
 import cm.kfokam48.presences.session.api.dto.SessionResumeReponse;
+import cm.kfokam48.presences.session.domaine.CycleDeVieSessionService;
 import cm.kfokam48.presences.session.domaine.SessionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,9 +25,11 @@ import java.util.List;
 public class SessionController {
 
     private final SessionService service;
+    private final CycleDeVieSessionService cycleDeVie;
 
-    public SessionController(SessionService service) {
+    public SessionController(SessionService service, CycleDeVieSessionService cycleDeVie) {
         this.service = service;
+        this.cycleDeVie = cycleDeVie;
     }
 
     /** EF1 — {@code POST /api/sessions} : 201, ou 400 si un champ manque. */
@@ -40,5 +45,23 @@ public class SessionController {
         return service.listerParPromotion(promotionId).stream()
                 .map(SessionResumeReponse::de)
                 .toList();
+    }
+
+    /**
+     * EF7 — {@code POST /api/sessions/{id}/cloture} : ferme les dépôts et attribue
+     * les relecteurs. 200, 404 SESSION_INCONNUE, 409 SESSION_DEJA_CLOTUREE.
+     */
+    @PostMapping("/{sessionId}/cloture")
+    public ResultatClotureReponse cloturer(@PathVariable Long sessionId) {
+        return ResultatClotureReponse.de(cycleDeVie.cloturer(sessionId));
+    }
+
+    /**
+     * EF10 — {@code POST /api/sessions/{id}/finalisation} : fige les relectures.
+     * 200, 404 SESSION_INCONNUE, 409 SESSION_NON_CLOTUREE ou SESSION_DEJA_FINALISEE.
+     */
+    @PostMapping("/{sessionId}/finalisation")
+    public ResultatFinalisationReponse finaliser(@PathVariable Long sessionId) {
+        return ResultatFinalisationReponse.de(cycleDeVie.finaliser(sessionId));
     }
 }
