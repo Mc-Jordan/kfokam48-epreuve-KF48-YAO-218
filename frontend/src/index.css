@@ -1,0 +1,15 @@
+/* Le sujet ne note pas le rendu visuel. Le strict nécessaire pour que
+   l'application soit lisible sur un téléphone (ENF1), rien de plus. */
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 1rem; max-width: 60rem; }
+nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+nav a { padding: 0.5rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center; }
+nav a[aria-current='page'] { font-weight: 700; text-decoration: underline; }
+button, input, select { min-height: 44px; font: inherit; padding: 0.5rem; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid currentColor; padding: 0.4rem 0.6rem; text-align: left; }
+[role='alert'] { border: 2px solid currentColor; padding: 0.75rem; }
