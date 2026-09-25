@@ -70,6 +70,34 @@ public class Session {
         return session;
     }
 
+    /**
+     * RG13 — la clôture ferme les dépôts et déclenche l'attribution des relecteurs.
+     * RG12 — elle n'a lieu qu'une fois.
+     */
+    public void cloturer(Instant maintenant) {
+        if (statut != StatutSession.OUVERTE) {
+            throw cm.kfokam48.presences.partage.erreur.Erreurs.sessionDejaCloturee();
+        }
+        this.statut = StatutSession.CLOTUREE;
+        this.clotureAt = maintenant;
+    }
+
+    /**
+     * RG21 — la finalisation fige les relectures. C'est ici que l'intention de Q15
+     * s'applique : la note devient définitive, mais à la finalisation et non à
+     * l'envoi. RG12 — on ne finalise que ce qui est clôturé, et une seule fois.
+     */
+    public void finaliser(Instant maintenant) {
+        if (statut == StatutSession.OUVERTE) {
+            throw cm.kfokam48.presences.partage.erreur.Erreurs.sessionNonCloturee();
+        }
+        if (statut == StatutSession.FINALISEE) {
+            throw cm.kfokam48.presences.partage.erreur.Erreurs.sessionDejaFinalisee();
+        }
+        this.statut = StatutSession.FINALISEE;
+        this.finalisationAt = maintenant;
+    }
+
     /** RG1 — le code ne vaut plus rien passé son expiration. */
     public boolean codeExpireA(Instant maintenant) {
         return !maintenant.isBefore(expirationAt);
