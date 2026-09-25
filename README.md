@@ -89,7 +89,46 @@ PostgreSQL par Testcontainers. **Aucune base locale n'est requise**, mais Docker
 
 ## Jeu de données de démonstration
 
-<!-- à compléter — ticket #15 -->
+Il se charge tout seul, par une migration Flyway. Il vise les **cas limites**, parce
+qu'un jeu qui ne montrerait que le cas nominal laisserait plusieurs règles
+invérifiables à l'écran.
+
+Ouvrez <http://localhost:8081/formateur> et vous verrez :
+
+| Ce qui est visible | Pourquoi c'est là |
+|---|---|
+| Trois séances, une par état — `OUVERTE`, `CLOTUREE`, `FINALISEE` | Le cycle de vie complet |
+| Un exercice `NON_ATTRIBUABLE` (Gaston NKOLO) | `RG17` — aucun relecteur éligible à la clôture |
+| Une relecture attribuée jamais rendue | `RG23` — le relecteur défaillant de `Q11` |
+| Une présence « ajoutée par le formateur » (Francine MBALLA) | `RG4` et `Q14` |
+| Un étudiant sans aucune note (Hortense ATANGANA) | `RG24` — moyenne vide, qui n'est pas un zéro |
+| Une séance ouverte au code encore valable | Pour que vous puissiez agir vous-même |
+
+**Pour essayer le parcours complet :** le code de la séance ouverte s'obtient en
+ouvrant une nouvelle séance depuis l'écran formateur, puis en le saisissant depuis
+l'écran étudiant.
+
+## Ce que fait l'application
+
+| Acteur | Ce qu'il peut faire |
+|---|---|
+| **Formateur** | Ouvrir une séance et obtenir son code · ajouter une présence à la main · clôturer, ce qui ferme les dépôts et attribue les relecteurs · finaliser, ce qui fige les relectures · suivre la promotion |
+| **Étudiant** | Marquer sa présence · déposer le lien de son exercice · remplacer ce lien tant que la séance est ouverte · consulter la note reçue |
+| **Relecteur** | Consulter les exercices qui lui sont attribués · rendre une note et un commentaire · les corriger jusqu'à la finalisation |
+
+Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relecture a
+été attribuée.
+
+## Limites connues
+
+- **Aucune authentification.** L'étudiant choisit son nom dans une liste (`Q1`).
+  N'importe qui peut agir au nom de n'importe qui : le dispositif est un outil de
+  séance, pas un registre opposable. C'est une décision, écrite au §3 du cahier des
+  charges, pas un oubli.
+- **La promotion est fixée** côté interface. Son choix relève d'un écran
+  d'administration explicitement hors périmètre.
+- **L'étudiant désigne son exercice par son numéro**, affiché au moment du dépôt.
+  Sans authentification, il n'existe pas d'autre moyen de le retrouver.
 
 ## Documentation
 
