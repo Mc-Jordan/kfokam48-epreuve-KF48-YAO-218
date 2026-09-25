@@ -7,6 +7,9 @@ l'ensemble dans un tableau récapitulatif.
 
 **Épreuve finale fullstack KFOKAM48** · NANDJO NGOULE Michele Jordan · **KF48-YAO-218** · Centre de Yaoundé
 
+[![Intégration continue](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/actions/workflows/ci.yml/badge.svg)](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/actions/workflows/ci.yml)
+[![Qualité](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/actions/workflows/sonar.yml/badge.svg)](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/actions/workflows/sonar.yml)
+
 ---
 
 ## Pile technique
@@ -36,15 +39,57 @@ frontend/    application React
 
 ## Installation depuis un clone vierge
 
-<!-- à compléter à l'étape 4 -->
+**Prérequis : Docker et Docker Compose.** Rien d'autre — ni JDK, ni Node, ni PostgreSQL.
 
-## Démarrage
+```bash
+git clone https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218.git
+cd kfokam48-epreuve-KF48-YAO-218
+cp .env.example .env
+docker compose up
+```
 
-<!-- à compléter à l'étape 4 -->
+Trois commandes après le clone. L'application est ensuite disponible sur :
+
+| | |
+|---|---|
+| Interface | <http://localhost:8081> |
+| API | <http://localhost:8080/api> |
+| État du service | <http://localhost:8080/actuator/health> |
+
+Pour tout arrêter et repartir d'une base vide : `docker compose down -v`.
+
+> `.env` n'est pas versionné. `.env.example` fournit des valeurs de démonstration ;
+> changez-les pour tout autre usage.
+
+## Développement sans Docker
+
+Utile pour itérer, mais ce n'est pas le chemin documenté pour un tiers.
+
+```bash
+# Base seule
+docker compose up db
+
+# Backend — exige un JDK 21 et un JAVA_HOME qui pointe vers un JDK, pas un JRE
+cd backend
+DB_URL=jdbc:postgresql://localhost:5432/presences DB_USER=presences DB_PASSWORD=... ./mvnw spring-boot:run
+
+# Frontend — exige Node 22 ; /api est relayé vers le port 8080
+cd frontend && npm ci && npm run dev
+```
+
+## Tests
+
+```bash
+cd backend && ./mvnw verify
+```
+
+`verify` enchaîne les tests unitaires puis les tests d'intégration, qui démarrent un
+PostgreSQL par Testcontainers. **Aucune base locale n'est requise**, mais Docker doit
+être disponible.
 
 ## Jeu de données de démonstration
 
-<!-- à compléter à l'étape 4 -->
+<!-- à compléter — ticket #15 -->
 
 ## Documentation
 
@@ -62,7 +107,7 @@ frontend/    application React
 | Étape | État |
 |---|---|
 | 0 — Environnement | fait |
-| 1 — Analyse et conception | en cours |
-| 2 — Première version `v0.1` | à venir |
+| 1 — Analyse et conception | fait — jalon `[JALON] analyse` |
+| 2 — Première version `v0.1` | en cours — socle technique posé |
 | 3 — Enveloppe | à venir |
 | 4 — Version finale `v1.0` | à venir |

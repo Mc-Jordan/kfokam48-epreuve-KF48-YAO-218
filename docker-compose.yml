@@ -1,0 +1,51 @@
+# =============================================================================
+#  Demarrage complet de l'application : docker compose up
+#  Les identifiants viennent de .env — voir .env.example. Aucun secret ici.
+# =============================================================================
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - donnees-postgres:/var/lib/postgresql/data
+    healthcheck:
+      # Le backend ne demarre pas avant que la base accepte reellement les
+      # connexions : attendre le simple demarrage du conteneur ne suffit pas.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8081}:8081"
+    restart: unless-stopped
+
+volumes:
+  donnees-postgres:

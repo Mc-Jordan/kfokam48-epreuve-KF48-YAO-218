@@ -1,0 +1,38 @@
+name: Publication d'une version
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  publier:
+    name: Créer la release depuis le CHANGELOG
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le corps de la release vient du CHANGELOG et de nulle part ailleurs :
+      # une note de version écrite deux fois finit par se contredire.
+      - name: Extraire la section du CHANGELOG
+        id: extraire
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo 'corps<<FIN_DE_SECTION'
+            awk -v v="$VERSION" '
+              $0 ~ "^## \\[" v "\\]" { dedans = 1; next }
+              dedans && /^## \[/      { exit }
+              dedans                  { print }
+            ' CHANGELOG.md
+            echo 'FIN_DE_SECTION'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Créer la release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: ${{ steps.extraire.outputs.corps }}
+          generate_release_notes: true
