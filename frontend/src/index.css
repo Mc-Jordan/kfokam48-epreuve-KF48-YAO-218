@@ -1,21 +1,422 @@
-/* Le sujet ne note pas le rendu visuel. Le strict nécessaire pour que
-   l'application soit lisible sur un téléphone (ENF1), rien de plus. */
-:root {
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-}
-* { box-sizing: border-box; }
-body { margin: 0; padding: 1rem; max-width: 60rem; }
-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
-nav a { padding: 0.5rem 0.75rem; min-height: 44px; display: inline-flex; align-items: center; }
-nav a[aria-current='page'] { font-weight: 700; text-decoration: underline; }
-button, input, select { min-height: 44px; font: inherit; padding: 0.5rem; }
-table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid currentColor; padding: 0.4rem 0.6rem; text-align: left; }
-[role='alert'] { border: 2px solid currentColor; padding: 0.75rem; }
+/* ==========================================================================
+   Feuille de style unique de l'application.
 
-/* Visible des lecteurs d'écran seulement : une table doit porter une légende,
-   même quand l'en-tête voisin la rend redondante à l'œil. */
+   Le sujet ne note pas le rendu visuel. Ce fichier n'existe donc pas pour
+   gagner des points, mais pour qu'une démonstration soit lisible sur le
+   téléphone d'un étudiant comme sur l'écran d'un formateur.
+
+   Trois contraintes tiennent tout le reste :
+     ENF1 — utilisable à 360 px, zones tactiles d'au moins 44 px
+     WCAG — contraste du texte 4.5:1, contour des champs 3:1, vérifiés au calcul
+     aucune dépendance ajoutée — ni police distante, ni cadriciel CSS
+
+   Les polices sont celles du système. Une police Google imposerait un appel
+   réseau au premier rendu : texte invisible le temps du chargement, et une
+   démonstration hors ligne qui s'affiche en Times New Roman.
+   ========================================================================== */
+
+/* --- Jetons ---------------------------------------------------------------
+   Aucune couleur n'est écrite en dur ailleurs que dans ce bloc. Le mode sombre
+   ne fait que redéfinir les mêmes jetons : les deux thèmes ne peuvent pas
+   diverger sans qu'on le voie ici.                                          */
+
+:root {
+  color-scheme: light dark;
+
+  --fond:            #ffffff;
+  --surface:         #f8fafc;
+  --surface-marquee: #f1f5f9;
+
+  --texte:           #0f172a;   /* 17.9:1 sur blanc */
+  --texte-discret:   #475569;   /*  7.6:1 */
+
+  --primaire:        #0f766e;   /*  5.5:1 — sert aussi de fond de bouton */
+  --primaire-vif:    #0d9488;
+  --sur-primaire:    #ffffff;   /*  5.5:1 sur --primaire */
+
+  --danger:          #b91c1c;   /*  6.5:1 */
+  --succes:          #15803d;   /*  5.0:1 */
+  --attention:       #a16207;   /*  4.9:1 */
+
+  --trait:           #e2e8f0;   /* décoratif : séparateurs, contours de carte */
+  --trait-champ:     #64748b;   /*  4.8:1 — contour de composant, WCAG 1.4.11 */
+
+  --rayon:    10px;
+  --rayon-sm:  6px;
+  --ombre:    0 1px 2px rgb(15 23 42 / 6%), 0 1px 3px rgb(15 23 42 / 10%);
+  --ombre-sm: 0 1px 2px rgb(15 23 42 / 8%);
+
+  /* Rythme de 4 px. Toute marge de ce fichier sort de cette échelle. */
+  --e1: 4px;  --e2: 8px;  --e3: 12px; --e4: 16px;
+  --e5: 24px; --e6: 32px; --e7: 48px;
+
+  --transition: 160ms cubic-bezier(0.2, 0, 0, 1);
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  font-size: 16px;            /* en dessous, iOS zoome à la saisie */
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fond:            #0b1220;
+    --surface:         #131c2b;
+    --surface-marquee: #1b2537;
+
+    --texte:           #e2e8f0;   /* 13.9:1 */
+    --texte-discret:   #94a3b8;   /*  6.7:1 */
+
+    --primaire:        #5eead4;   /* 11.6:1 — en sombre, le teal porte le texte */
+    --primaire-vif:    #2dd4bf;
+    --sur-primaire:    #0b1220;   /* 10.1:1 sur --primaire-vif */
+
+    --danger:          #fca5a5;
+    --succes:          #86efac;
+    --attention:       #fcd34d;
+
+    --trait:           #263449;
+    --trait-champ:     #7c8da6;   /*  5.1:1 */
+
+    --ombre:    0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 30%);
+    --ombre-sm: 0 1px 2px rgb(0 0 0 / 35%);
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fond);
+  color: var(--texte);
+}
+
+/* --- Ossature ------------------------------------------------------------- */
+
+.entete {
+  border-bottom: 1px solid var(--trait);
+  background: var(--surface);
+  padding: var(--e3) var(--e4) 0;
+}
+
+.entete__titre {
+  margin: 0 0 var(--e1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texte-discret);
+}
+
+.onglets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e1);
+  margin: 0 calc(-1 * var(--e1));
+}
+
+.onglets a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;                 /* ENF1 */
+  padding: 0 var(--e3);
+  border-radius: var(--rayon-sm) var(--rayon-sm) 0 0;
+  border-bottom: 3px solid transparent;
+  color: var(--texte-discret);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition),
+              background-color var(--transition);
+}
+
+.onglets a:hover { color: var(--texte); background: var(--surface-marquee); }
+
+/* L'onglet courant est marqué par la couleur ET par le trait : la couleur
+   seule ne suffit pas pour qui ne la distingue pas. */
+.onglets a[aria-current="page"] {
+  color: var(--primaire);
+  border-bottom-color: var(--primaire);
+  font-weight: 650;
+}
+
+main { max-width: 72rem; margin: 0 auto; padding: var(--e5) var(--e4) var(--e7); }
+
+/* --- Titres --------------------------------------------------------------- */
+
+h1 { font-size: 1.5rem;   font-weight: 650; margin: 0 0 var(--e5); letter-spacing: -0.015em; }
+h2 { font-size: 1.125rem; font-weight: 650; margin: 0 0 var(--e3); letter-spacing: -0.01em; }
+h3 { font-size: 1rem;     font-weight: 600; margin: 0 0 var(--e2); }
+
+/* --- Cartes --------------------------------------------------------------- */
+
+.carte {
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  padding: var(--e5);
+  margin-bottom: var(--e5);
+  box-shadow: var(--ombre-sm);
+}
+
+.carte > :last-child { margin-bottom: 0; }
+
+/* --- Formulaires ---------------------------------------------------------- */
+
+.champ { display: block; margin-bottom: var(--e4); }
+
+.champ > label,
+label.etiquette {
+  display: block;
+  margin-bottom: var(--e1);
+  font-size: 0.875rem;
+  font-weight: 550;
+  color: var(--texte-discret);
+}
+
+input, select, textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--e2) var(--e3);
+  font: inherit;
+  color: var(--texte);
+  background: var(--fond);
+  border: 1px solid var(--trait-champ);
+  border-radius: var(--rayon-sm);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+textarea { min-height: 88px; resize: vertical; }
+
+input:hover, select:hover, textarea:hover { border-color: var(--primaire); }
+
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--primaire);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primaire) 28%, transparent);
+}
+
+input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--surface-marquee);
+}
+
+/* Les champs courts ne s'étirent pas sur toute la largeur d'un écran large :
+   un code à six caractères dans un champ de 900 px se lit mal. */
+.champ--court  input { max-width: 12rem; }
+.champ--moyen  input, .champ--moyen select { max-width: 24rem; }
+
+.ligne-champs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  align-items: flex-end;
+}
+
+/* --- Boutons -------------------------------------------------------------- */
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--e2);
+  min-height: 44px;
+  padding: 0 var(--e4);
+  font: inherit;
+  font-weight: 550;
+  color: var(--sur-primaire);
+  background: var(--primaire);
+  border: 1px solid transparent;
+  border-radius: var(--rayon-sm);
+  cursor: pointer;
+  transition: background-color var(--transition), transform var(--transition),
+              box-shadow var(--transition);
+}
+
+@media (prefers-color-scheme: dark) { button { background: var(--primaire-vif); } }
+
+button:hover:not(:disabled) { background: var(--primaire-vif); box-shadow: var(--ombre); }
+
+/* Enfoncement léger : le retour est immédiat sans déplacer ce qui entoure. */
+button:active:not(:disabled) { transform: scale(0.98); }
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primaire) 40%, transparent);
+}
+
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bouton--discret {
+  color: var(--texte);
+  background: transparent;
+  border-color: var(--trait-champ);
+}
+
+.bouton--discret:hover:not(:disabled) {
+  background: var(--surface-marquee);
+  border-color: var(--primaire);
+  color: var(--primaire);
+}
+
+/* --- Tableaux ------------------------------------------------------------- */
+
+/* Un tableau ne se réduit pas sous 360 px sans devenir illisible. Il défile
+   donc horizontalement, dans son propre conteneur — la page, elle, ne défile
+   jamais latéralement. */
+.tableau-defilant {
+  overflow-x: auto;
+  border: 1px solid var(--trait);
+  border-radius: var(--rayon);
+  background: var(--surface);
+}
+
+table { border-collapse: collapse; width: 100%; min-width: 34rem; }
+
+caption { text-align: left; padding: var(--e3) var(--e4); color: var(--texte-discret); }
+
+th, td {
+  padding: var(--e3) var(--e4);
+  text-align: left;
+  border-bottom: 1px solid var(--trait);
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-marquee);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--texte-discret);
+  white-space: nowrap;
+}
+
+tbody tr:last-child td, tbody tr:last-child th { border-bottom: none; }
+tbody tr:hover { background: var(--surface-marquee); }
+
+/* Chiffres à chasse fixe : sans cela, les colonnes de notes tremblent d'une
+   ligne à l'autre. */
+.nombre { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* --- Étiquettes d'état ----------------------------------------------------- */
+
+/* Chaque état porte un mot, jamais une couleur seule. */
+.etat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
+  padding: 2px var(--e2);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.etat--ouvert      { color: var(--succes); }
+.etat--cloture     { color: var(--attention); }
+.etat--finalise    { color: var(--texte-discret); }
+.etat--provisoire  { color: var(--attention); }
+.etat--impossible  { color: var(--danger); }
+
+/* --- Messages -------------------------------------------------------------- */
+
+.message {
+  display: flex;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  border: 1px solid currentColor;
+  border-left-width: 4px;
+  border-radius: var(--rayon-sm);
+  margin: var(--e4) 0;
+}
+
+.message p { margin: 0; color: var(--texte); }
+.message__code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--texte-discret);
+}
+
+.message--erreur  { color: var(--danger); }
+.message--succes  { color: var(--succes); }
+.message--info    { color: var(--texte-discret); }
+
+/* --- Code de présence ------------------------------------------------------ */
+
+/* Le code se dicte à voix haute à une salle : il doit se lire du fond. */
+.code-presence {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: clamp(2rem, 9vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--primaire);
+  margin: var(--e2) 0;
+  /* Le dernier caractère hérite de l'interlettrage : sans quoi le bloc paraît
+     décalé vers la gauche. */
+  text-indent: 0.18em;
+}
+
+/* --- États de chargement --------------------------------------------------- */
+
+.chargement {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  color: var(--texte-discret);
+  padding: var(--e4) 0;
+}
+
+.chargement::before {
+  content: "";
+  width: 16px; height: 16px;
+  border: 2px solid var(--trait-champ);
+  border-top-color: var(--primaire);
+  border-radius: 50%;
+  animation: rotation 700ms linear infinite;
+}
+
+@keyframes rotation { to { transform: rotate(360deg); } }
+
+.vide {
+  padding: var(--e5);
+  text-align: center;
+  color: var(--texte-discret);
+  background: var(--surface-marquee);
+  border-radius: var(--rayon-sm);
+}
+
+/* --- Listes ---------------------------------------------------------------- */
+
+.liste-nue { list-style: none; margin: 0; padding: 0; }
+.liste-nue > li + li { margin-top: var(--e4); }
+
+.commentaires { margin: var(--e2) 0 0; padding-left: var(--e5); }
+.commentaires li + li { margin-top: var(--e2); }
+
+/* --- Divers ---------------------------------------------------------------- */
+
+a { color: var(--primaire); text-underline-offset: 2px; }
+a:focus-visible {
+  outline: 2px solid var(--primaire);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+fieldset {
+  margin: var(--e5) 0 0;
+  padding: var(--e4);
+  border: 1px dashed var(--trait-champ);
+  border-radius: var(--rayon-sm);
+}
+
+legend { padding: 0 var(--e2); font-size: 0.875rem; font-weight: 600; color: var(--texte-discret); }
+
+small { color: var(--texte-discret); }
+
 .sr-only {
   position: absolute;
   width: 1px; height: 1px;
@@ -23,4 +424,30 @@ th, td { border: 1px solid currentColor; padding: 0.4rem 0.6rem; text-align: lef
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* --- Mouvement réduit ------------------------------------------------------ */
+
+/* Une animation qui ne porte pas d'information ne doit pas s'imposer à qui
+   la supporte mal. Le rotor de chargement ralentit au lieu de disparaître :
+   il dit encore que quelque chose se passe. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .chargement::before {
+    animation: rotation 1.6s linear infinite !important;
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+
+/* --- Écrans larges --------------------------------------------------------- */
+
+@media (min-width: 48rem) {
+  .entete { padding: var(--e4) var(--e6) 0; }
+  main    { padding: var(--e6) var(--e6) var(--e7); }
+  h1      { font-size: 1.875rem; }
 }
