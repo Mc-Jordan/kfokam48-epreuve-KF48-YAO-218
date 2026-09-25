@@ -46,6 +46,9 @@ public class RelectureService {
      * <p>RG20 : un second envoi avant la finalisation remplace le premier et
      * renvoie {@code 200}. C'est l'arbitrage de Q10 contre Q15 — la note reste
      * modifiable, mais jusqu'à un acte explicite du formateur.</p>
+     *
+     * <p>RG24 : l'exercice passe à {@code RELU} quand les deux relecteurs ont rendu,
+     * et reste à {@code RELU_PARTIEL} tant qu'il en manque un.</p>
      */
     @Transactional
     public Relecture rendre(Long relectureId, int note, String commentaire) {
@@ -63,27 +66,32 @@ public class RelectureService {
         }
 
         relecture.rendre((short) note, commentaire, Instant.now(horloge));
+        Relecture enregistree = relectures.saveAndFlush(relecture);
 
+        // RG24 — l'exercice n'est pleinement relu que lorsque les deux relecteurs
+        // ont rendu. Tant qu'il en manque un, sa note existe mais reste provisoire.
         Exercice exercice = relecture.getExercice();
-        exercice.devenirRelu();
+        NoteDUnExercice etatDeLaNote = NoteDUnExercice.de(relectures.findByExerciceId(exercice.getId()));
+        exercice.relectureRendue(etatDeLaNote.relecturesRendues(), etatDeLaNote.relecturesAttendues());
         exercices.save(exercice);
 
-        return relectures.save(relecture);
+        return enregistree;
     }
 
     /**
      * EF11 — la relecture reçue par l'auteur d'un exercice.
      *
-     * <p>Rend l'exercice et sa relecture éventuelle. L'anonymat de RG22 est tenu
-     * par le DTO, qui ne comporte aucun champ identifiant le relecteur.</p>
+     * <p>Rend l'exercice et la note qui en découle : moyenne des relectures rendues,
+     * caractère provisoire, commentaires. L'anonymat de RG22 est tenu par le DTO, qui
+     * ne comporte aucun champ identifiant les relecteurs.</p>
      */
     @Transactional(readOnly = true)
     public ResultatConsultation consulterPourAuteur(Long exerciceId) {
         Exercice exercice = exercices.findById(exerciceId).orElseThrow(Erreurs::exerciceInconnu);
-        return new ResultatConsultation(exercice, relectures.findByExerciceId(exerciceId).orElse(null));
+        return new ResultatConsultation(exercice, NoteDUnExercice.de(relectures.findByExerciceId(exerciceId)));
     }
 
-    /** Un exercice et sa relecture, quand elle existe. */
-    public record ResultatConsultation(Exercice exercice, Relecture relecture) {
+    /** Un exercice et la note qui en découle — moyenne, caractère provisoire, commentaires. */
+    public record ResultatConsultation(Exercice exercice, NoteDUnExercice note) {
     }
 }

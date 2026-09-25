@@ -8,7 +8,13 @@
 
 export type StatutSession = 'OUVERTE' | 'CLOTUREE' | 'FINALISEE';
 export type SourcePresence = 'ETUDIANT' | 'FORMATEUR';
-export type StatutExercice = 'DEPOSE' | 'EN_ATTENTE_RELECTURE' | 'RELU' | 'NON_ATTRIBUABLE';
+export type StatutExercice =
+  | 'DEPOSE'
+  | 'EN_ATTENTE_RELECTURE'
+  /** Une seule des deux relectures est rendue : la note existe mais reste provisoire. */
+  | 'RELU_PARTIEL'
+  | 'RELU'
+  | 'NON_ATTRIBUABLE';
 export type StatutRelecture = 'ATTRIBUEE' | 'RENDUE' | 'FIGEE';
 
 /** Corps d'erreur imposé, pour toutes les erreurs sans exception (RG25). */
@@ -68,12 +74,20 @@ export interface RelectureAssignee {
   commentaire?: string | null;
 }
 
-/** Aucun champ n'identifie le relecteur : RG22 est tenue par la forme même. */
+/**
+ * Aucun champ n'identifie un relecteur : RG22 est tenue par la forme même.
+ * L'ordre des commentaires ne dit rien non plus de qui a rendu en premier.
+ */
 export interface RelectureRecue {
   exerciceId: number;
   statut: StatutExercice;
+  /** Moyenne des relectures rendues (RG24). Absente tant qu'aucune ne l'est. */
   note?: number | null;
-  commentaire?: string | null;
+  /** Vrai tant que les deux relecteurs n'ont pas rendu (RG26). */
+  provisoire: boolean;
+  relecturesAttendues: number;
+  relecturesRendues: number;
+  commentaires: string[];
 }
 
 export interface LigneTableau {
@@ -84,6 +98,8 @@ export interface LigneTableau {
   /** Calculée par le serveur ; jamais recalculée ici (RG24, contrainte F3). */
   moyenne: number | null;
   relecturesEnAttente: number;
+  /** Vrai si au moins un exercice attend encore une relecture (RG26). */
+  moyenneProvisoire: boolean;
 }
 
 export interface ResultatCloture {

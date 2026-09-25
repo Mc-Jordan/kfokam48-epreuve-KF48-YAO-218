@@ -29,8 +29,13 @@ class CoherenceD2MigrationTest {
 
     private static final Pattern NOM_DANS_D2 = Pattern.compile("`((?:uq|ck|idx|fk)_[a-z_]+)`");
     private static final Pattern NOM_DANS_SQL = Pattern.compile("(?:CONSTRAINT|INDEX)\\s+([a-z_]+)");
-    private static final Pattern NOM_SUPPRIME =
-            Pattern.compile("DROP\\s+(?:CONSTRAINT|INDEX)\\s+(?:IF EXISTS\\s+)?([a-z_]+)");
+
+    /**
+     * Une instruction qui crée ou supprime une contrainte ou un index, avec son nom.
+     * Le groupe 1 vaut {@code DROP} pour une suppression, et rien pour une création.
+     */
+    private static final Pattern INSTRUCTION_SCHEMA = Pattern.compile(
+            "(DROP\\s+)?(?:CONSTRAINT|INDEX)\\s+(?:IF EXISTS\\s+)?([a-z_]+)");
     private static final Pattern TABLE_DANS_D2 = Pattern.compile("(?m)^\\s{4}([A-Z_]+) \\{");
     private static final Pattern TABLE_DANS_SQL = Pattern.compile("CREATE TABLE ([a-z_]+)");
 
@@ -67,22 +72,31 @@ class CoherenceD2MigrationTest {
     }
 
     /**
-     * Les contraintes que le schéma porte <strong>réellement</strong> : celles que les
-     * migrations créent, moins celles qu'elles suppriment.
+     * Les contraintes que le schéma porte <strong>réellement</strong>, une fois toutes
+     * les migrations appliquées.
      *
      * <p>Comparer à l'union de toutes les instructions serait faux dès la première
-     * migration qui retire une contrainte — l'étape 3 en retire deux. Une contrainte
-     * supprimée n'a plus à figurer dans {@code D2}, et l'y exiger reviendrait à figer
-     * le diagramme sur un schéma qui n'existe plus.</p>
+     * migration qui retire une contrainte — l'étape 3 en retire deux. Soustraire
+     * naïvement les suppressions serait faux aussi : élargir une contrainte
+     * {@code CHECK} se fait en la supprimant puis en la recréant sous le même nom,
+     * ce que fait {@code V4}.</p>
      *
-     * <p>Limite connue : une contrainte supprimée puis recréée sous le même nom serait
-     * considérée comme absente. Le cas ne se présente pas, et le jour où il se
-     * présentera, ce commentaire dira quoi corriger.</p>
+     * <p>On rejoue donc les instructions <strong>dans l'ordre</strong>, comme Flyway
+     * le fera. C'est la seule lecture qui décrive l'état final du schéma.</p>
      */
     private static Set<String> contraintesEffectives(String migrations) {
-        Set<String> creees = extraire(NOM_DANS_SQL, migrations);
-        creees.removeAll(extraire(NOM_SUPPRIME, migrations));
-        return creees;
+        Set<String> portees = new TreeSet<>();
+        Matcher instruction = INSTRUCTION_SCHEMA.matcher(migrations);
+        while (instruction.find()) {
+            boolean suppression = instruction.group(1) != null;
+            String nom = instruction.group(2);
+            if (suppression) {
+                portees.remove(nom);
+            } else {
+                portees.add(nom);
+            }
+        }
+        return portees;
     }
 
     private static String lireDiagramme() throws IOException {

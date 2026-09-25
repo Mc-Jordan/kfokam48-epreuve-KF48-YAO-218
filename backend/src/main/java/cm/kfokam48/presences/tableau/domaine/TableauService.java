@@ -24,6 +24,12 @@ public class TableauService {
         if (!promotions.existsById(promotionId)) {
             throw Erreurs.promotionInconnue();
         }
-        return tableau.recapitulatifDeLaPromotion(promotionId);
+        return tableau.recapitulatifDeLaPromotion(promotionId).stream()
+                .map(ligne -> new LigneTableau(
+                        ligne.getEtudiantId(), ligne.getNom(),
+                        ligne.getPresences(), ligne.getExercicesDeposes(),
+                        ligne.getMoyenne(), ligne.getRelecturesEnAttente(),
+                        ligne.getMoyenneProvisoire()))
+                .toList();
     }
 }

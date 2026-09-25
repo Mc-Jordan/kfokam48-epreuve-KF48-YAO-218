@@ -18,7 +18,8 @@ public record LigneTableauReponse(
         long presences,
         long exercicesDeposes,
         BigDecimal moyenne,
-        long relecturesEnAttente
+        long relecturesEnAttente,
+        boolean moyenneProvisoire
 ) {
     public static LigneTableauReponse de(LigneTableau ligne) {
         return new LigneTableauReponse(
@@ -30,6 +31,10 @@ public record LigneTableauReponse(
                 ligne.moyenne() == null
                         ? null
                         : BigDecimal.valueOf(ligne.moyenne()).setScale(2, RoundingMode.HALF_UP),
-                ligne.relecturesEnAttente());
+                ligne.relecturesEnAttente(),
+                // RG26 — une moyenne provisoire n'est pas une moyenne. Sans ce
+                // drapeau, le formateur lirait une note qui peut encore changer
+                // comme si elle était acquise.
+                ligne.moyenneProvisoire());
     }
 }

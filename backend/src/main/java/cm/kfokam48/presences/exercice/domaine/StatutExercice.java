@@ -15,7 +15,13 @@ public enum StatutExercice {
     /** Un relecteur a été tiré au sort, il n'a pas encore rendu (RG23). */
     EN_ATTENTE_RELECTURE,
 
-    /** Note et commentaire rendus. */
+    /**
+     * Une seule des deux relectures est rendue. La note s'affiche déjà, mais elle
+     * est provisoire (RG24, RG26) — c'est exactement ce que le client a demandé.
+     */
+    RELU_PARTIEL,
+
+    /** Les deux relectures sont rendues. La note est la moyenne, et elle est définitive. */
     RELU,
 
     /**

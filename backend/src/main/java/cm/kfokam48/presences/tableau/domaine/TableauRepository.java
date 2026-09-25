@@ -12,38 +12,79 @@ public interface TableauRepository extends JpaRepository<Etudiant, Long> {
     /**
      * Le tableau du formateur, en <strong>une seule requête</strong> (ENF2).
      *
-     * <p>Chaque agrégat vit dans sa propre sous-requête corrélée plutôt que dans
-     * des jointures cumulées : trois {@code LEFT JOIN} sur présences, exercices et
-     * relectures produiraient un produit cartésien, et les comptes seraient faux —
-     * un étudiant présent à trois séances et ayant déposé deux exercices
-     * compterait six présences. C'est l'erreur classique de ce genre de tableau,
-     * et elle ne se voit qu'avec des données réalistes.</p>
+     * <h2>Pourquoi une requête native</h2>
      *
-     * <p>Les règles portées :</p>
+     * <p>Depuis l'étape 3, la note d'un exercice est la <em>moyenne de ses deux
+     * relectures</em> (RG24), et la moyenne d'un étudiant est la moyenne de ses
+     * <em>notes d'exercice</em>. Ce sont deux agrégations imbriquées.</p>
+     *
+     * <p>Moyenner directement toutes les notes brutes donnerait un résultat faux dès
+     * que les exercices n'ont pas le même nombre de relectures — ce qui est le cas
+     * des séances clôturées avant le changement, qui n'en ont qu'une. Un exercice
+     * relu deux fois pèserait alors double. JPQL ne permet pas d'agréger le résultat
+     * d'une agrégation : d'où la requête native et sa table dérivée.</p>
+     *
+     * <h2>Ce que chaque colonne porte</h2>
      * <ul>
-     *   <li><strong>RG24</strong> — la moyenne ne porte que sur les relectures
-     *       <em>rendues</em> ou <em>figées</em> concernant les exercices de
-     *       l'étudiant, et vaut {@code null} s'il n'en a aucune ;</li>
-     *   <li><strong>RG23</strong> — {@code relecturesEnAttente} compte les
-     *       relectures que l'étudiant <em>doit encore rendre</em>, au sens de Q16,
-     *       et non les siennes en attente d'être relues. Les deux se disent
-     *       « en attente » et désignent des choses différentes.</li>
+     *   <li><strong>RG23</strong> — {@code relecturesEnAttente} compte les relectures
+     *       que l'étudiant <em>doit encore rendre</em>, au sens de Q16, et non les
+     *       siennes en attente d'être relues. Les deux se disent « en attente ».</li>
+     *   <li><strong>RG24</strong> — {@code moyenne} agrège des notes d'exercice, pas
+     *       des notes de relecture.</li>
+     *   <li><strong>RG26</strong> — {@code moyenneProvisoire} vaut vrai dès qu'un
+     *       exercice a reçu une note mais pas toutes. Un exercice dont aucune
+     *       relecture n'est rendue ne compte pas : il ne pèse pas sur la moyenne.</li>
      * </ul>
      */
-    @Query("""
-            SELECT new cm.kfokam48.presences.tableau.domaine.LigneTableau(
-                e.id,
-                e.nom,
-                (SELECT COUNT(p) FROM Presence p WHERE p.etudiant = e),
-                (SELECT COUNT(x) FROM Exercice x WHERE x.etudiant = e),
-                (SELECT AVG(CAST(r.note AS double)) FROM Relecture r
-                     WHERE r.exercice.etudiant = e AND r.note IS NOT NULL),
-                (SELECT COUNT(r2) FROM Relecture r2
-                     WHERE r2.relecteur = e AND r2.statut = cm.kfokam48.presences.relecture.domaine.StatutRelecture.ATTRIBUEE)
-            )
-            FROM Etudiant e
-            WHERE e.promotion.id = :promotionId
+    @Query(nativeQuery = true, value = """
+            SELECT e.id                                                   AS etudiantId,
+                   e.nom                                                  AS nom,
+                   COALESCE(pr.total, 0)                                  AS presences,
+                   COALESCE(ex.total, 0)                                  AS exercicesDeposes,
+                   moy.moyenne                                            AS moyenne,
+                   COALESCE(due.total, 0)                                 AS relecturesEnAttente,
+                   COALESCE(prov.provisoire, FALSE)                       AS moyenneProvisoire
+            FROM etudiants e
+            LEFT JOIN (SELECT etudiant_id, COUNT(*) AS total
+                       FROM presences GROUP BY etudiant_id) pr ON pr.etudiant_id = e.id
+            LEFT JOIN (SELECT etudiant_id, COUNT(*) AS total
+                       FROM exercices GROUP BY etudiant_id) ex ON ex.etudiant_id = e.id
+            LEFT JOIN (SELECT relecteur_id, COUNT(*) AS total
+                       FROM relectures WHERE statut = 'ATTRIBUEE'
+                       GROUP BY relecteur_id) due ON due.relecteur_id = e.id
+            LEFT JOIN (SELECT x.etudiant_id, AVG(par_exercice.note) AS moyenne
+                       FROM (SELECT exercice_id, AVG(note) AS note
+                             FROM relectures WHERE note IS NOT NULL
+                             GROUP BY exercice_id) par_exercice
+                       JOIN exercices x ON x.id = par_exercice.exercice_id
+                       GROUP BY x.etudiant_id) moy ON moy.etudiant_id = e.id
+            LEFT JOIN (SELECT x.etudiant_id, TRUE AS provisoire
+                       FROM relectures manquante
+                       JOIN exercices x ON x.id = manquante.exercice_id
+                       WHERE manquante.note IS NULL
+                         AND EXISTS (SELECT 1 FROM relectures rendue
+                                     WHERE rendue.exercice_id = manquante.exercice_id
+                                       AND rendue.note IS NOT NULL)
+                       GROUP BY x.etudiant_id) prov ON prov.etudiant_id = e.id
+            WHERE e.promotion_id = :promotionId
             ORDER BY e.nom ASC
             """)
-    List<LigneTableau> recapitulatifDeLaPromotion(@Param("promotionId") Long promotionId);
+    List<ProjectionLigneTableau> recapitulatifDeLaPromotion(@Param("promotionId") Long promotionId);
+
+    /** Projection des colonnes de la requête native, avant passage au domaine. */
+    interface ProjectionLigneTableau {
+        Long getEtudiantId();
+
+        String getNom();
+
+        long getPresences();
+
+        long getExercicesDeposes();
+
+        Double getMoyenne();
+
+        long getRelecturesEnAttente();
+
+        boolean getMoyenneProvisoire();
+    }
 }

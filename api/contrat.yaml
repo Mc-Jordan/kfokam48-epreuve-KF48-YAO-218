@@ -177,6 +177,10 @@ paths:
                     exercicesDeposes: { type: integer }
                     moyenne: { type: number, nullable: true }
                     relecturesEnAttente: { type: integer }
+                    # AJOUT etape 3 — RG26. La moyenne agrege des notes dont
+                    # certaines peuvent etre provisoires ; le formateur doit
+                    # pouvoir le distinguer d'une moyenne definitive.
+                    moyenneProvisoire: { type: boolean }
         "404": { $ref: "#/components/responses/Erreur" }   # PROMOTION_INCONNUE
 
   # ==========================================================================
@@ -373,11 +377,18 @@ paths:
   /api/exercices/{exerciceId}/relecture:
     get:
       operationId: consulterRelectureRecue
-      summary: L'auteur consulte la note et le commentaire recus
+      summary: L'auteur consulte la note recue et les commentaires de ses relecteurs
       description: |
         Reclamee par EF11. Applique RG22 : le schema de reponse ne comporte
         aucun champ d'identification du relecteur. L'anonymat de Q8 est ainsi
         tenu par construction, et non par une regle applicative qu'on oublie.
+
+        ETAPE 3 — la forme a change. L'exercice recoit desormais deux relectures
+        (RG15) et la note retenue est leur moyenne (RG24). Tant qu'une seule est
+        rendue, la note s'affiche mais reste PROVISOIRE (RG26), ce que le client
+        a demande explicitement. Les commentaires sont au pluriel, et leur ordre
+        est volontairement aleatoire : conserver l'ordre d'arrivee laisserait
+        deviner qui a rendu en premier.
       parameters:
         - name: exerciceId
           in: path
@@ -472,15 +483,39 @@ components:
 
     RelectureRecue:
       description: |
-        Aucun champ n'identifie le relecteur, ni directement ni indirectement.
-        C'est la traduction de RG22 dans le contrat lui-meme.
+        Aucun champ n'identifie le relecteur, ni directement ni indirectement —
+        pas meme la date d'attribution, qui rapprochee de l'ordre des presences
+        pourrait le trahir. C'est la traduction de RG22 dans le contrat lui-meme.
+
+        La note est la MOYENNE des relectures rendues (RG24), arrondie au
+        centieme par le serveur. Elle est PROVISOIRE tant que les deux relecteurs
+        n'ont pas rendu (RG26).
       type: object
-      required: [exerciceId, statut]
+      required: [exerciceId, statut, relecturesAttendues, relecturesRendues, provisoire, commentaires]
       properties:
         exerciceId: { type: integer, format: int64 }
-        statut: { type: string, enum: [EN_ATTENTE_RELECTURE, RELU, NON_ATTRIBUABLE] }
-        note: { type: integer, nullable: true }
-        commentaire: { type: string, nullable: true }
+        statut:
+          type: string
+          enum: [EN_ATTENTE_RELECTURE, RELU_PARTIEL, RELU, NON_ATTRIBUABLE]
+        note:
+          type: number
+          nullable: true
+          description: Moyenne des relectures rendues. Absente tant qu'aucune ne l'est.
+        provisoire:
+          type: boolean
+          description: |
+            Vrai tant que les deux relecteurs n'ont pas rendu. Une note provisoire
+            doit etre signalee comme telle partout ou elle est affichee (RG26).
+        relecturesAttendues:
+          type: integer
+          description: |
+            Deux en regle generale. Une seule quand la seance ne comptait que deux
+            presents : un relecteur unique etait alors le maximum possible (RG17).
+        relecturesRendues: { type: integer }
+        commentaires:
+          type: array
+          description: Ordre aleatoire, pour ne pas laisser deviner qui a rendu en premier.
+          items: { type: string }
 
   responses:
     Erreur:
