@@ -4,7 +4,7 @@ import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Requete } from '../composants/Etat';
 import { ChoixEtudiant } from '../composants/ChoixEtudiant';
-import type { RelectureRecue, SessionResume } from '../api/types';
+import type { Exercice, RelectureRecue, SessionResume } from '../api/types';
 
 /**
  * Écran étudiant (contrainte F2) — marquer sa présence, déposer son exercice,
@@ -91,7 +91,7 @@ function DepotDExercice({ etudiantId }: { etudiantId: number }) {
   const sessions = useRequete<SessionResume[]>(() => operations.listerSessions(PROMOTION));
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [lien, setLien] = useState('');
-  const [statut, setStatut] = useState<string | null>(null);
+  const [depose, setDepose] = useState<Exercice | null>(null);
   const [erreur, setErreur] = useState<ErreurApi | null>(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -100,10 +100,9 @@ function DepotDExercice({ etudiantId }: { etudiantId: number }) {
     if (sessionId === null) return;
     setEnCours(true);
     setErreur(null);
-    setStatut(null);
+    setDepose(null);
     try {
-      const exercice = await operations.deposerExercice(sessionId, etudiantId, lien);
-      setStatut(exercice.statut);
+      setDepose(await operations.deposerExercice(sessionId, etudiantId, lien));
       setLien('');
     } catch (e) {
       setErreur(e as ErreurApi);
@@ -157,8 +156,60 @@ function DepotDExercice({ etudiantId }: { etudiantId: number }) {
       </Requete>
 
       {erreur && <Erreur erreur={erreur} />}
-      {statut && <p role="status">Exercice déposé. État : {statut}.</p>}
+      {depose && (
+        <p role="status">
+          Exercice n° {depose.id} déposé, état {depose.statut}.
+          {' '}Notez ce numéro : il vous servira à consulter votre note.
+        </p>
+      )}
+
+      <RemplacementDuLien />
     </form>
+  );
+}
+
+function RemplacementDuLien() {
+  const [exerciceId, setExerciceId] = useState('');
+  const [lien, setLien] = useState('');
+  const [confirme, setConfirme] = useState(false);
+  const [erreur, setErreur] = useState<ErreurApi | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  async function envoyer(evenement: React.FormEvent) {
+    evenement.preventDefault();
+    setEnCours(true);
+    setErreur(null);
+    setConfirme(false);
+    try {
+      await operations.remplacerLienExercice(Number(exerciceId), lien);
+      setConfirme(true);
+      setLien('');
+    } catch (e) {
+      setErreur(e as ErreurApi);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <fieldset>
+      <legend>Je me suis trompé de lien</legend>
+      {/* RG10 — possible tant que la séance est ouverte. Le serveur tranche :
+          on ne devine pas ici si la clôture a eu lieu. */}
+      <label htmlFor="exercice-a-corriger">Numéro de l'exercice</label>{' '}
+      <input id="exercice-a-corriger" type="number" min={1} value={exerciceId}
+             onChange={(e) => setExerciceId(e.target.value)} />{' '}
+      <label htmlFor="nouveau-lien">Nouveau lien</label>{' '}
+      <input id="nouveau-lien" type="url" value={lien} size={36}
+             onChange={(e) => setLien(e.target.value)} />{' '}
+      <button type="button" onClick={envoyer}
+              disabled={enCours || exerciceId === '' || lien.trim() === ''}>
+        {enCours ? 'Envoi…' : 'Remplacer'}
+      </button>
+
+      {erreur && <Erreur erreur={erreur} />}
+      {confirme && <p role="status">Lien remplacé.</p>}
+    </fieldset>
   );
 }
 

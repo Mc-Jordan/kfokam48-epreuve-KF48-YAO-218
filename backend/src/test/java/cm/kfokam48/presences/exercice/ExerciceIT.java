@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.RequestBuilder;
 import java.time.Duration;
 import java.time.Instant;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -134,6 +135,78 @@ class ExerciceIT extends TestPostgres {
                         .content("{ \"sessionId\": %d, \"etudiantId\": %d }".formatted(sessionId, presentId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("CHAMP_MANQUANT"));
+    }
+
+    // --- Remplacement du lien (EF6, RG10, Q13) ------------------------------
+
+    @Test
+    @DisplayName("200 — RG10, le lien est remplaçable tant que la séance est ouverte")
+    void devraitRemplacerLeLien_RG10() throws Exception {
+        Long exerciceId = deposerEtRendreId();
+
+        mockMvc.perform(remplacer(exerciceId, "https://github.com/awa/corrige"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(exerciceId))
+                .andExpect(jsonPath("$.statut").value("DEPOSE"));
+
+        assertThat(exercices.findById(exerciceId).orElseThrow().getLien())
+                .isEqualTo("https://github.com/awa/corrige");
+    }
+
+    @Test
+    @DisplayName("RG10 — le remplacement est possible autant de fois que nécessaire")
+    void devraitPermettrePlusieursRemplacements_RG10() throws Exception {
+        Long exerciceId = deposerEtRendreId();
+
+        for (int i = 1; i <= 3; i++) {
+            mockMvc.perform(remplacer(exerciceId, "https://github.com/awa/essai-" + i))
+                    .andExpect(status().isOk());
+        }
+        assertThat(exercices.findById(exerciceId).orElseThrow().getLien())
+                .isEqualTo("https://github.com/awa/essai-3");
+    }
+
+    @Test
+    @DisplayName("409 REMPLACEMENT_IMPOSSIBLE — RG10, la séance est clôturée")
+    void devraitRefuserLeRemplacementApresCloture_RG10() throws Exception {
+        Long exerciceId = deposerEtRendreId();
+        mockMvc.perform(post("/api/sessions/{id}/cloture", sessionId)).andExpect(status().isOk());
+
+        mockMvc.perform(remplacer(exerciceId, "https://github.com/awa/trop-tard"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("REMPLACEMENT_IMPOSSIBLE"));
+    }
+
+    @Test
+    @DisplayName("400 LIEN_INVALIDE — RG9, le nouveau lien n'est pas une adresse web")
+    void devraitRefuserUnNouveauLienInvalide_RG9() throws Exception {
+        Long exerciceId = deposerEtRendreId();
+
+        mockMvc.perform(remplacer(exerciceId, "mailto:awa@exemple.cm"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("LIEN_INVALIDE"));
+    }
+
+    @Test
+    @DisplayName("404 EXERCICE_INCONNU — l'exercice n'existe pas")
+    void devraitRefuserUnExerciceInconnuAuRemplacement() throws Exception {
+        mockMvc.perform(remplacer(999999L, "https://github.com/awa/tp"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("EXERCICE_INCONNU"));
+    }
+
+    private Long deposerEtRendreId() throws Exception {
+        String corps = mockMvc.perform(deposer(sessionId, presentId, LIEN))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return new com.fasterxml.jackson.databind.ObjectMapper().readTree(corps).get("id").asLong();
+    }
+
+    private RequestBuilder remplacer(Long exerciceId, String lien) {
+        return org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .put("/api/exercices/{id}", exerciceId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"lien\": \"%s\" }".formatted(lien));
     }
 
     private RequestBuilder deposer(Long sessionId, Long etudiantId, String lien) {

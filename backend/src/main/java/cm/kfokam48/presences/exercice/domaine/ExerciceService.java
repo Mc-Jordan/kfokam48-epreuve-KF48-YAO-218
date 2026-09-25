@@ -73,4 +73,27 @@ public class ExerciceService {
         return exercices.save(
                 Exercice.deposer(session, etudiant, lienValide, Instant.now(horloge)));
     }
+
+    /**
+     * EF6 — l'étudiant remplace le lien de son exercice.
+     *
+     * <p>RG10 : le remplacement est libre tant que la séance est ouverte, et cesse
+     * à la clôture. Q13 le formule autrement — « tant que personne n'a commencé à
+     * relire » — mais les deux coïncident ici : le tirage n'ayant lieu qu'à la
+     * clôture (arbitrage du trou n°2), personne ne peut avoir commencé avant.
+     * C'est ce qui rend Q13 applicable sans avoir à définir « commencer ».</p>
+     */
+    @Transactional
+    public Exercice remplacerLien(Long exerciceId, String lien) {
+        String lienValide = validateur.valider(lien);
+
+        Exercice exercice = exercices.findById(exerciceId).orElseThrow(Erreurs::exerciceInconnu);
+
+        if (!exercice.getSession().getStatut().estOuverte()) {
+            throw Erreurs.remplacementImpossible();
+        }
+
+        exercice.remplacerLien(lienValide, Instant.now(horloge));
+        return exercices.save(exercice);
+    }
 }
