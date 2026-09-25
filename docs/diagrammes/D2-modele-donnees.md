@@ -98,7 +98,15 @@ Une règle d'unicité absente d'ici sera absente de la migration. Chacune est do
 | `ck_relectures_note` | `relectures` | `CHECK (note IS NULL OR note BETWEEN 0 AND 20)` | `RG18` — note entière de 0 à 20 |
 | `ck_sessions_statut` | `sessions` | `CHECK (statut IN ('OUVERTE','CLOTUREE','FINALISEE'))` | `RG12` — les trois états, sans retour en arrière |
 | `ck_presences_source` | `presences` | `CHECK (source IN ('ETUDIANT','FORMATEUR'))` | `RG4` — traçabilité de l'ajout manuel |
+| `uq_promotions_nom` | `promotions` | `UNIQUE (nom)` | deux promotions homonymes rendraient la liste de `Q1` inutilisable |
+| `ck_sessions_expiration` | `sessions` | `CHECK (expiration_at > ouverture_at)` | `RG1` — garde-fou : une session ne peut pas naître déjà expirée |
+| `ck_relectures_note_si_rendue` | `relectures` | `CHECK (statut = 'ATTRIBUEE' OR (note IS NOT NULL AND rendue_at IS NOT NULL))` | `RG20` — une relecture rendue ou figée porte nécessairement une note |
 | *applicative* | `relectures` | `relecteur_id <> (SELECT etudiant_id FROM exercices WHERE id = exercice_id)` | `RG19` — jamais relire son propre exercice, vérifiée au service et couverte par un test unitaire |
+
+Les clés étrangères ne sont pas listées une à une : elles suivent exactement les
+relations du diagramme et se nomment `fk_<table>_<cible>`, à l'exception de
+`fk_relectures_exercice_session`, composite, qui figure ci-dessus parce qu'elle
+porte une garantie que le diagramme ne montre pas.
 
 ## Index
 
