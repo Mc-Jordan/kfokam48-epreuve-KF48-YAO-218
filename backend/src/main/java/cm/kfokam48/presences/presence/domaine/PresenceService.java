@@ -75,6 +75,6 @@ public class PresenceService {
         if (!sessions.existsById(sessionId)) {
             throw Erreurs.sessionInconnue();
         }
-        return presences.findBySessionIdOrderByEnregistreeAtAsc(sessionId);
+        return presences.findAvecEtudiantParSession(sessionId);
     }
 }

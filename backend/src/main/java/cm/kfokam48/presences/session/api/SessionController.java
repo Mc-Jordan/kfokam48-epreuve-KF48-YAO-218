@@ -6,6 +6,8 @@ import cm.kfokam48.presences.session.api.dto.ResultatClotureReponse;
 import cm.kfokam48.presences.session.api.dto.ResultatFinalisationReponse;
 import cm.kfokam48.presences.session.api.dto.SessionResumeReponse;
 import cm.kfokam48.presences.session.domaine.CycleDeVieSessionService;
+import cm.kfokam48.presences.presence.api.dto.PresenceDetailReponse;
+import cm.kfokam48.presences.presence.domaine.PresenceService;
 import cm.kfokam48.presences.session.domaine.SessionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -26,10 +28,13 @@ public class SessionController {
 
     private final SessionService service;
     private final CycleDeVieSessionService cycleDeVie;
+    private final PresenceService presences;
 
-    public SessionController(SessionService service, CycleDeVieSessionService cycleDeVie) {
+    public SessionController(SessionService service, CycleDeVieSessionService cycleDeVie,
+                             PresenceService presences) {
         this.service = service;
         this.cycleDeVie = cycleDeVie;
+        this.presences = presences;
     }
 
     /** EF1 — {@code POST /api/sessions} : 201, ou 400 si un champ manque. */
@@ -44,6 +49,17 @@ public class SessionController {
     public List<SessionResumeReponse> lister(@RequestParam Long promotionId) {
         return service.listerParPromotion(promotionId).stream()
                 .map(SessionResumeReponse::de)
+                .toList();
+    }
+
+    /**
+     * EF4, EF12 — {@code GET /api/sessions/{id}/presences} : le détail des présences,
+     * source comprise. 200, ou 404 SESSION_INCONNUE.
+     */
+    @GetMapping("/{sessionId}/presences")
+    public List<PresenceDetailReponse> listerPresences(@PathVariable Long sessionId) {
+        return presences.listerParSession(sessionId).stream()
+                .map(PresenceDetailReponse::de)
                 .toList();
     }
 
