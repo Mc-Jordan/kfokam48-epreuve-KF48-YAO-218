@@ -66,10 +66,55 @@ jobs:
             -Dsonar.organization=mcjordan \
             -Dsonar.host.url=https://sonarcloud.io
 
-      # Porte de qualité bloquante : une analyse qui échoue arrête la chaîne.
+      # Porte de qualité bloquante.
+      #
+      # L'action SonarSource/sonarqube-quality-gate-action rapportait « Quality
+      # Gate not set for the project » alors que la porte « Sonar way » est bien
+      # affectée — vérifié par l'API. On interroge donc l'API directement : une
+      # vingtaine de lignes déterministes valent mieux qu'une dépendance externe
+      # épinglée sur @master, qui peut changer sous nos pieds.
       - name: Attendre la porte de qualité
         if: steps.secret.outputs.disponible == 'true'
-        uses: SonarSource/sonarqube-quality-gate-action@master
-        timeout-minutes: 5
-        with:
-          scanMetadataReportFile: backend/target/sonar/report-task.txt
+        working-directory: backend
+        run: |
+          set -euo pipefail
+
+          URL_TACHE=$(grep '^ceTaskUrl=' target/sonar/report-task.txt | cut -d= -f2-)
+          echo "Tâche d'analyse : $URL_TACHE"
+
+          # L'analyse est asynchrone : on attend qu'elle quitte l'état PENDING.
+          for tentative in $(seq 1 60); do
+            ETAT=$(curl -sS -u "$SONAR_TOKEN:" "$URL_TACHE" | jq -r '.task.status')
+            case "$ETAT" in
+              SUCCESS) break ;;
+              FAILED|CANCELED)
+                echo "::error::L'analyse SonarCloud s'est terminée en échec ($ETAT)."
+                exit 1 ;;
+              *) echo "  analyse $ETAT… ($tentative/60)"; sleep 5 ;;
+            esac
+          done
+
+          if [ "$ETAT" != "SUCCESS" ]; then
+            echo "::error::L'analyse n'a pas abouti en cinq minutes."
+            exit 1
+          fi
+
+          ID_ANALYSE=$(curl -sS -u "$SONAR_TOKEN:" "$URL_TACHE" | jq -r '.task.analysisId')
+          PORTE=$(curl -sS -u "$SONAR_TOKEN:" \
+            "https://sonarcloud.io/api/qualitygates/project_status?analysisId=$ID_ANALYSE")
+
+          STATUT=$(echo "$PORTE" | jq -r '.projectStatus.status')
+          echo "### Porte de qualité : $STATUT" >> "$GITHUB_STEP_SUMMARY"
+
+          # Les conditions en échec sont listées dans le résumé : un « gate rouge »
+          # sans motif oblige à rouvrir SonarCloud pour rien.
+          echo "$PORTE" | jq -r '
+            .projectStatus.conditions[]
+            | select(.status == "ERROR")
+            | "- **\(.metricKey)** : \(.actualValue) (seuil \(.comparator) \(.errorThreshold))"
+          ' >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$STATUT" != "OK" ]; then
+            echo "::error::La porte de qualité est en échec ($STATUT)."
+            exit 1
+          fi
