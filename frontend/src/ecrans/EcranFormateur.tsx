@@ -3,13 +3,13 @@ import { operations } from '../api/operations';
 import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Requete } from '../composants/Etat';
-import type { SessionOuverte, SessionResume } from '../api/types';
+import type { LigneTableau, SessionOuverte, SessionResume } from '../api/types';
 
 /**
- * Écran formateur (contrainte F2) — ouvrir une séance, la clôturer, la finaliser.
+ * Écran formateur (contrainte F2) — ouvrir une séance, la clôturer, la finaliser,
+ * et suivre la promotion.
  *
- * Le tableau récapitulatif vient avec le ticket #9, l'ajout manuel de présence
- * avec le ticket #10.
+ * L'ajout manuel de présence vient avec le ticket #10.
  */
 
 /** Le choix de la promotion relève d'un écran d'administration, hors périmètre (§3). */
@@ -48,7 +48,53 @@ export default function EcranFormateur() {
           )
         }
       </Requete>
+
+      <TableauRecapitulatif />
     </section>
+  );
+}
+
+function TableauRecapitulatif() {
+  const tableau = useRequete<LigneTableau[]>(() => operations.consulterTableau(PROMOTION));
+
+  return (
+    <>
+      <h2>Suivi de la promotion</h2>
+      <Requete etat={tableau} quoi="du tableau">
+        {(lignes) =>
+          lignes.length === 0 ? (
+            <p>Aucun étudiant dans cette promotion.</p>
+          ) : (
+            <table>
+              <caption className="sr-only">Récapitulatif par étudiant</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Étudiant</th>
+                  <th scope="col">Présences</th>
+                  <th scope="col">Exercices déposés</th>
+                  <th scope="col">Moyenne reçue</th>
+                  <th scope="col">Relectures à rendre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((ligne) => (
+                  <tr key={ligne.etudiantId}>
+                    <th scope="row">{ligne.nom}</th>
+                    <td>{ligne.presences}</td>
+                    <td>{ligne.exercicesDeposes}</td>
+                    {/* La moyenne vient de l'API et n'est ni recalculée ni
+                        réarrondie ici (RG24, contrainte F3). Vide veut dire
+                        « aucune note reçue », ce qui n'est pas zéro. */}
+                    <td>{ligne.moyenne ?? '—'}</td>
+                    <td>{ligne.relecturesEnAttente > 0 ? <strong>{ligne.relecturesEnAttente}</strong> : 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        }
+      </Requete>
+    </>
   );
 }
 
