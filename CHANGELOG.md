@@ -5,7 +5,71 @@ Versionnage : `v0.1` à l'issue de l'étape 2, `v1.0` à l'issue de l'étape 4.
 
 ## [Non publié]
 
-Rien pour l'instant. La suite dépend de l'enveloppe de l'étape 3.
+Rien. `v1.0` est la version remise.
+
+## [1.0] — 2026-09-25
+
+Version finale. Elle intègre le bug et le changement de besoin apportés par
+l'enveloppe de l'étape 3.
+
+### Changé
+
+- **Chaque exercice est relu par deux pairs différents**, et la note retenue est
+  la moyenne des deux (`RG15`, `RG24`). Le client revient sur sa réponse `Q6`, et
+  il dit pourquoi : « quand il ne rend rien, l'étudiant n'a aucune note »
+- **Une note provisoire est signalée comme telle** tant qu'une seule des deux
+  relectures est rendue, avec son motif (`RG26`). Nouvel état `RELU_PARTIEL`
+- Un étudiant relit désormais **au plus deux** exercices par séance (`RG16`)
+- L'attribution se fait **au mieux** (`RG17`) : deux relecteurs dès trois présents,
+  un seul à deux présents, aucun à un seul. Refuser d'attribuer sous trois présents
+  aurait été une régression sur `v0.1`
+- La moyenne d'un étudiant porte sur ses **notes d'exercice**, et non sur les notes
+  de relecture brutes — un exercice relu deux fois ne pèse pas double
+- Les commentaires reçus sont rendus dans un ordre **alphabétique et non
+  chronologique** : l'ordre de rendu laisserait deviner qui a rendu en premier
+
+### Corrigé
+
+- **Deux envois simultanés du même étudiant répondaient `500 ERREUR_INTERNE`**
+  au lieu de `409 DEJA_PRESENT`. Aucune présence n'était perdue — la contrainte
+  posée en `V1` protégeait la donnée — mais l'étudiant croyait ne pas être
+  enregistré alors qu'il l'était. Le même motif « vérifier puis écrire » existait
+  à **quatre** endroits : les quatre sont traités
+- `exercicesAttribues` comptait les relectures et non les exercices : le formateur
+  aurait vu dix exercices attribués là où il y en a cinq
+- `D4` annonçait le statut `RELU_PARTIEL` sans que la contrainte de base l'autorise
+
+### Outillage
+
+- Le test de cohérence `D2` / migrations **rejoue les instructions dans l'ordre** :
+  il considérait une contrainte supprimée comme présente, puis une contrainte
+  supprimée et recréée comme absente
+- Le jeu de démonstration montre les deux cas du changement — un exercice relu
+  deux fois, un exercice provisoire — sans quoi `RG24` et `RG26` ne seraient
+  visibles nulle part
+
+### Migrations
+
+Toutes **ajoutées** ; `V1` et `V2` ne sont jamais modifiées. Une base en service
+les applique par-dessus et conserve ses données.
+
+| | |
+|---|---|
+| `V3` | Deux relecteurs par exercice : contraintes d'unicité revues |
+| `V4` | Statut `RELU_PARTIEL` |
+| `V5` | Jeu de démonstration étendu au cas provisoire |
+
+### Hors périmètre, assumé
+
+Ce que le changement de l'étape 3 **n'a pas** entraîné, et pourquoi :
+
+- **Pas de réattribution rétroactive.** Les séances clôturées avant le changement
+  gardent leur relecteur unique. Le client écrit « à partir de maintenant », et
+  réattribuer modifierait des moyennes déjà communiquées
+- **Pas de réattribution manuelle** par le formateur : cela aurait augmenté le
+  périmètre alors que l'énoncé demande de le réduire
+- **Pas de refonte de l'écran relecteur** : il affiche deux fois plus de lignes,
+  c'est tout ce dont il a besoin
 
 ## [0.1] — 2026-09-25
 
@@ -68,5 +132,6 @@ ouverture, présence, dépôt, attribution des relecteurs, relecture, suivi.
 - La promotion est fixée en constante côté frontend : son choix relève d'un écran d'administration explicitement hors périmètre
 - L'étudiant désigne son exercice par son numéro, affiché au dépôt : sans authentification, il n'existe pas d'autre moyen de le retrouver
 
-[Non publié]: https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/compare/v0.1...HEAD
+[Non publié]: https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/compare/v1.0...HEAD
+[1.0]: https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/compare/v0.1...v1.0
 [0.1]: https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/releases/tag/v0.1
