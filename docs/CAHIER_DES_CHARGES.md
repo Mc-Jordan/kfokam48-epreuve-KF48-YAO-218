@@ -1,39 +1,67 @@
-# Cahier des charges — <nom de l'application, a arreter a l'etape 1>
+# Cahier des charges — Présences & Relectures KFOKAM48
 
 **Auteur :** NANDJO NGOULE Michele Jordan · KF48-YAO-218
-**Centre :** Yaounde
-**Version :** 1 · **Date :** <a dater le jour de la redaction>
-**Frontend choisi :** React + Vite + TypeScript, parce que <justification a ecrire a l'etape 1>
+**Centre :** Yaoundé
+**Version :** 1 · **Date :** 25 septembre 2026
+**Frontend choisi :** React + Vite + TypeScript, parce que le besoin tient en trois écrans sans rendu côté serveur ni référencement : Vite offre le démarrage et le build les plus rapides, TypeScript rend le contrat d'API vérifiable à la compilation, et le tout se sert en production par un simple conteneur de fichiers statiques.
 
-> Squelette impose par le sujet : les dix sections, dans cet ordre.
-> Corps a rediger a l'etape 1, avant tout commit de code.
-> Tout ce qui reste en `<...>` ou en italique a la remise compte pour zero.
+> Les dix sections sont imposées par le sujet, dans cet ordre.
+> Les exigences sont numérotées `EFn`, les règles de gestion `RGn`. Elles sont citées
+> dans les issues, dans les messages de commit et dans les tests.
+> Les décisions prises à la place du client renvoient aux questions `Qn` de `CLIENT.md`.
 
 ---
 
 ## 1. Contexte et objectif
 
-*À quel problème concret l'application répond, et pour qui. Cinq à dix lignes, avec tes mots — pas un copier-coller de l'énoncé.*
+La formation KFOKAM48 réunit des promotions d'une soixantaine d'étudiants autour de séances animées par un formateur. Trois gestes rythment chaque séance et se font aujourd'hui à la main : constater qui est là, récupérer le travail rendu, et faire circuler ce travail entre pairs pour qu'il soit relu. Le formateur tient ces informations dans des feuilles séparées, ce qui lui interdit de répondre simplement à la seule question qui l'intéresse vraiment : où en est chaque étudiant.
+
+L'application supprime ces trois frictions. Le formateur ouvre une séance et obtient un code éphémère ; les étudiants s'en servent pour se déclarer présents depuis leur téléphone, puis déposent le lien de leur exercice. À la fermeture des dépôts, le système distribue lui-même les exercices entre les étudiants présents, de sorte que chacun en relise un qui n'est pas le sien. Le formateur suit l'ensemble dans un tableau unique : présence, dépôts, moyenne reçue, relectures encore dues.
+
+L'objectif n'est pas d'évaluer les étudiants à la place du formateur, mais de **rendre visible en un écran l'état d'une promotion**, et de faire porter la relecture par le groupe plutôt que par une seule personne.
 
 ## 2. Acteurs et rôles
 
 | Acteur | Ce qu'il peut faire | Ce qu'il ne peut pas faire |
 |---|---|---|
-| Formateur | | |
-| Étudiant | | |
-| Relecteur | | |
+| **Formateur** | Ouvrir une session et diffuser son code · ajouter une présence à la main · clôturer la session, ce qui ferme les dépôts et déclenche l'attribution des relectures · finaliser la session, ce qui fige les relectures · consulter le tableau récapitulatif et le détail des présences | Déposer un exercice · rendre ou modifier une relecture · modifier une note rendue par un étudiant |
+| **Étudiant** | Se déclarer présent à l'aide du code · déposer le lien de son exercice · remplacer ce lien tant que la session est ouverte · consulter la note et le commentaire reçus | Ouvrir, clôturer ou finaliser une session · relire son propre exercice · connaître l'identité de son relecteur · marquer la présence d'un autre étudiant |
+| **Relecteur** | Consulter les exercices qui lui sont attribués · rendre une note entière et un commentaire · corriger cette relecture tant que la session n'est pas finalisée | Choisir l'exercice qu'il relit · relire plus d'un exercice par session · revenir sur sa relecture après la finalisation |
 
-*Le relecteur est-il un acteur distinct ou un étudiant dans un certain état ? Ta réponse a des conséquences sur ton modèle de données. Tranche-la ici.*
+**Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relecture a été attribuée.** Nous le traitons comme un rôle temporaire, porté par une donnée et non par une identité.
+
+*Conséquence sur le modèle de données :* aucune table `relecteur`, aucun champ de rôle sur l'étudiant. Le rôle naît de l'existence d'une ligne dans `relecture` dont la colonne `relecteur_id` pointe vers l'étudiant. Un étudiant est donc relecteur pour une session donnée et ne l'est plus pour une autre, sans qu'aucun état n'ait à être maintenu. C'est aussi ce qui rend l'anonymat (`Q8`) simple à tenir : il suffit de ne jamais exposer `relecteur_id` dans les réponses destinées à l'auteur de l'exercice.
 
 ## 3. Périmètre
 
 **Inclus dans cette version :**
--
+
+- Ouverture d'une session de cours par le formateur, avec production d'un code de présence à durée de vie limitée
+- Marquage de présence par l'étudiant à l'aide de ce code, depuis un téléphone
+- Protection contre la devinette de code par limitation des tentatives
+- Ajout manuel d'une présence par le formateur, tracé comme tel
+- Dépôt par l'étudiant du lien de son exercice, et remplacement de ce lien tant que la session est ouverte
+- Clôture de la session par le formateur : fermeture des dépôts et attribution automatique d'un relecteur par exercice, tiré au sort parmi les étudiants présents
+- Rendu d'une relecture — note entière sur 20 et commentaire — puis correction de cette relecture jusqu'à la finalisation
+- Finalisation de la session par le formateur, qui fige définitivement les relectures
+- Consultation par l'étudiant de la note et du commentaire reçus, sans l'identité du relecteur
+- Tableau récapitulatif du formateur : présences, exercices déposés, moyenne reçue, relectures encore dues
+- Jeu de données de démonstration chargé au démarrage
 
 **Explicitement exclu :**
--
 
-*Ce que tu exclus compte autant que ce que tu inclus. Un périmètre sans exclusion n'est pas un périmètre.*
+- **Toute authentification et toute gestion de mot de passe.** L'étudiant choisit son nom dans une liste (`Q1`). La conséquence est assumée : n'importe qui peut agir au nom de n'importe qui. Le dispositif est un outil de séance, pas un registre opposable
+- **La création et l'administration des promotions et des étudiants** par une interface : ces données proviennent du jeu de démonstration
+- **Le stockage des exercices eux-mêmes** : l'application conserve un lien, jamais un fichier
+- **Toute notification** par courriel ou par message, y compris la relance d'un relecteur défaillant
+- **La relecture multiple** : un exercice reçoit un relecteur et un seul (`Q6`)
+- **La réattribution manuelle d'un relecteur** par le formateur
+- **L'export des données** et l'historisation des modifications
+- **L'internationalisation** : l'application est en français
+- **Le soin apporté à la présentation.** Le sujet ne note pas le rendu visuel ; l'interface vise l'utilisabilité sur téléphone, rien de plus
+- **La gestion de plusieurs formateurs** et les droits fins associés
+
+*Ce que nous excluons compte autant que ce que nous incluons : chacune de ces lignes est une décision, pas un oubli.*
 
 ## 4. Exigences fonctionnelles
 
