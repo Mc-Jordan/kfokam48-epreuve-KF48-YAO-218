@@ -3,13 +3,12 @@ import { operations } from '../api/operations';
 import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Requete } from '../composants/Etat';
-import type { LigneTableau, SessionOuverte, SessionResume } from '../api/types';
+import { ChoixEtudiant } from '../composants/ChoixEtudiant';
+import type { LigneTableau, PresenceDetail, SessionOuverte, SessionResume } from '../api/types';
 
 /**
- * Écran formateur (contrainte F2) — ouvrir une séance, la clôturer, la finaliser,
- * et suivre la promotion.
- *
- * L'ajout manuel de présence vient avec le ticket #10.
+ * Écran formateur (contrainte F2) — ouvrir une séance, ajouter une présence à la
+ * main, clôturer, finaliser, et suivre la promotion.
  */
 
 /** Le choix de la promotion relève d'un écran d'administration, hors périmètre (§3). */
@@ -37,6 +36,7 @@ export default function EcranFormateur() {
                   <th scope="col">Ouverte à</th>
                   <th scope="col">Code valable jusqu'à</th>
                   <th scope="col">Action</th>
+                  <th scope="col">Présences</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,6 +152,7 @@ function OuvertureDeSeance({ onOuverte }: { onOuverte: () => void }) {
 }
 
 function LigneSeance({ session, onChange }: { session: SessionResume; onChange: () => void }) {
+  const [detailOuvert, setDetailOuvert] = useState(false);
   const [erreur, setErreur] = useState<ErreurApi | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -213,15 +214,86 @@ function LigneSeance({ session, onChange }: { session: SessionResume; onChange: 
           )}
           {session.statut === 'FINALISEE' && <span>Terminée</span>}
         </td>
+        <td>
+          <button type="button" onClick={() => setDetailOuvert(!detailOuvert)}>
+            {detailOuvert ? 'Masquer' : 'Présences'}
+          </button>
+        </td>
       </tr>
+      {detailOuvert && (
+        <tr>
+          <td colSpan={6}><DetailDesPresences session={session} /></td>
+        </tr>
+      )}
       {(message || erreur) && (
         <tr>
-          <td colSpan={5}>
+          <td colSpan={6}>
             {message && <span role="status">{message}</span>}
             {erreur && <Erreur erreur={erreur} />}
           </td>
         </tr>
       )}
+    </>
+  );
+}
+
+function DetailDesPresences({ session }: { session: SessionResume }) {
+  const presences = useRequete<PresenceDetail[]>(
+    () => operations.listerPresencesDeLaSession(session.id),
+    [session.id],
+  );
+  const [etudiantId, setEtudiantId] = useState<number | null>(null);
+  const [erreur, setErreur] = useState<ErreurApi | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  async function ajouter() {
+    if (etudiantId === null) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      await operations.enregistrerPresenceManuelle(session.id, etudiantId);
+      setEtudiantId(null);
+      presences.recharger();
+    } catch (e) {
+      setErreur(e as ErreurApi);
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  return (
+    <>
+      <Requete etat={presences} quoi="des présences">
+        {(liste) =>
+          liste.length === 0 ? (
+            <p>Personne n'est encore déclaré présent.</p>
+          ) : (
+            <ul>
+              {liste.map((presence) => (
+                <li key={presence.etudiantId}>
+                  {presence.nom}
+                  {/* Q14 : l'ajout manuel doit se voir. Le mentionner en clair
+                      plutôt que par une icône, que rien n'expliquerait. */}
+                  {presence.source === 'FORMATEUR' && <em> — ajouté par le formateur</em>}
+                </li>
+              ))}
+            </ul>
+          )
+        }
+      </Requete>
+
+      {/* L'ajout manuel n'a de sens que tant que la séance accepte des présences :
+          après la clôture, sa composition est figée et a servi au tirage (RG13). */}
+      {session.statut === 'OUVERTE' && (
+        <p>
+          <ChoixEtudiant promotionId={PROMOTION} valeur={etudiantId} onChange={setEtudiantId} />{' '}
+          <button type="button" onClick={ajouter} disabled={enCours || etudiantId === null}>
+            {enCours ? 'Ajout…' : 'Ajouter cette présence'}
+          </button>
+        </p>
+      )}
+
+      {erreur && <Erreur erreur={erreur} />}
     </>
   );
 }

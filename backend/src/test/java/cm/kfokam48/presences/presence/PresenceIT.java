@@ -152,6 +152,88 @@ class PresenceIT extends TestPostgres {
                 .andExpect(jsonPath("$.code").value("PROMOTION_INCONNUE"));
     }
 
+    // --- Présence ajoutée par le formateur (EF4, Q14) -----------------------
+
+    @Test
+    @DisplayName("201 — RG4, la présence manuelle porte la source FORMATEUR")
+    void devraitEnregistrerUnePresenceManuelle_RG4() throws Exception {
+        mockMvc.perform(manuelle(sessions.findAll().getFirst().getId(), awaId))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.etudiantId").value(awaId))
+                .andExpect(jsonPath("$.source").value("FORMATEUR"));
+    }
+
+    @Test
+    @DisplayName("RG5 — l'ajout manuel reste possible après l'expiration du code")
+    void devraitAccepterUnAjoutApresExpirationDuCode_RG5() throws Exception {
+        Promotion promotion = promotions.findAll().getFirst();
+        // Séance ouverte il y a une heure : son code est mort depuis quarante-cinq
+        // minutes. C'est précisément la situation de Q14.
+        Session ancienne = sessions.save(Session.ouvrir(
+                promotion, "Séance du matin", "OLD999", Instant.now().minus(Duration.ofHours(1))));
+
+        mockMvc.perform(manuelle(ancienne.getId(), awaId))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.source").value("FORMATEUR"));
+    }
+
+    @Test
+    @DisplayName("409 DEJA_PRESENT — RG3, l'unicité vaut quelle que soit la source")
+    void devraitRefuserUnDoublonQuelleQueSoitLaSource_RG3() throws Exception {
+        Long sessionId = sessions.findAll().getFirst().getId();
+        mockMvc.perform(marquer(code, awaId)).andExpect(status().isCreated());
+
+        mockMvc.perform(manuelle(sessionId, awaId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DEJA_PRESENT"));
+    }
+
+    @Test
+    @DisplayName("404 ETUDIANT_INCONNU — l'étudiant ajouté n'existe pas")
+    void devraitRefuserUnEtudiantInconnuALAjoutManuel() throws Exception {
+        mockMvc.perform(manuelle(sessions.findAll().getFirst().getId(), 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ETUDIANT_INCONNU"));
+    }
+
+    @Test
+    @DisplayName("404 SESSION_INCONNUE — la séance n'existe pas")
+    void devraitRefuserUneSessionInconnueALAjoutManuel() throws Exception {
+        mockMvc.perform(manuelle(999999L, awaId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("SESSION_INCONNUE"));
+    }
+
+    @Test
+    @DisplayName("400 CHAMP_MANQUANT — la séance est absente du corps")
+    void devraitRefuserUnCorpsIncompletALAjoutManuel() throws Exception {
+        mockMvc.perform(post("/api/presences/manuelles")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"etudiantId\": %d }".formatted(awaId)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHAMP_MANQUANT"));
+    }
+
+    @Test
+    @DisplayName("EF12 — le détail des présences distingue les deux sources")
+    void devraitDistinguerLesSourcesDansLeDetail() throws Exception {
+        Long sessionId = sessions.findAll().getFirst().getId();
+        mockMvc.perform(marquer(code, awaId)).andExpect(status().isCreated());
+        mockMvc.perform(manuelle(sessionId, biloaId)).andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/sessions/{id}/presences", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.source == 'ETUDIANT')].nom").value("Awa Njoya"))
+                .andExpect(jsonPath("$[?(@.source == 'FORMATEUR')].nom").value("Biloa Manga"));
+    }
+
+    private org.springframework.test.web.servlet.RequestBuilder manuelle(Long sessionId, Long etudiantId) {
+        return post("/api/presences/manuelles")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{ \"sessionId\": %d, \"etudiantId\": %d }".formatted(sessionId, etudiantId));
+    }
+
     private org.springframework.test.web.servlet.RequestBuilder marquer(String code, Long etudiantId) {
         return post("/api/presences")
                 .contentType(MediaType.APPLICATION_JSON)
