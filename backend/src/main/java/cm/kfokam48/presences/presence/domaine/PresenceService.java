@@ -26,10 +26,9 @@ import java.util.List;
  *   <li>l'unicité vient en dernier — {@code 409} (RG3).</li>
  * </ol>
  *
- * <p>Le blocage après cinq échecs (RG6) se placera <strong>avant</strong> la recherche
- * de session, comme D3 l'indique : sans quoi l'écart entre {@code 400} et {@code 410}
- * révélerait à un étudiant bloqué qu'un code existe, ce que Q4 cherche à empêcher.
- * Il arrive avec le ticket #14.</p>
+ * <p>Le blocage après cinq échecs (RG6) intervient <strong>avant</strong> la recherche
+ * de session, comme D3 l'impose : sans quoi l'écart entre {@code 400} et {@code 410}
+ * révélerait à un étudiant bloqué qu'un code existe, ce que Q4 cherche à empêcher.</p>
  */
 @Service
 public class PresenceService {
@@ -37,13 +36,15 @@ public class PresenceService {
     private final PresenceRepository presences;
     private final SessionRepository sessions;
     private final EtudiantService etudiants;
+    private final LimiteurDeTentatives limiteur;
     private final Clock horloge;
 
     public PresenceService(PresenceRepository presences, SessionRepository sessions,
-                           EtudiantService etudiants, Clock horloge) {
+                           EtudiantService etudiants, LimiteurDeTentatives limiteur, Clock horloge) {
         this.presences = presences;
         this.sessions = sessions;
         this.etudiants = etudiants;
+        this.limiteur = limiteur;
         this.horloge = horloge;
     }
 
@@ -52,20 +53,30 @@ public class PresenceService {
     public Presence marquer(String code, Long etudiantId) {
         Etudiant etudiant = etudiants.parIdentifiant(etudiantId);
         Instant maintenant = Instant.now(horloge);
+        String codeNormalise = code.trim().toUpperCase();
 
-        // 1. RG2 — le code désigne-t-il une session ?
-        Session session = sessions.findByCode(code.trim().toUpperCase())
-                .orElseThrow(Erreurs::codeInconnu);
+        // 1. RG6 — avant toute autre chose. Un étudiant bloqué ne doit rien pouvoir
+        //    apprendre de la réponse, pas même qu'un code existe.
+        limiteur.verifier(etudiant.getId(), maintenant);
 
-        // 2. RG1 — avant l'unicité : un code périmé ne vaut plus rien, quoi qu'il arrive.
+        // 2. RG2 — le code désigne-t-il une session ?
+        Session session = sessions.findByCode(codeNormalise).orElseGet(() -> {
+            limiteur.tracer(etudiant, codeNormalise, false, maintenant);
+            throw Erreurs.codeInconnu();
+        });
+
+        // 3. RG1 — avant l'unicité : un code périmé ne vaut plus rien, quoi qu'il arrive.
         if (session.codeExpireA(maintenant)) {
             throw Erreurs.codeExpire();
         }
 
-        // 3. RG3 — une seule présence par étudiant et par session.
+        // 4. RG3 — une seule présence par étudiant et par session.
         if (presences.existsBySessionIdAndEtudiantId(session.getId(), etudiant.getId())) {
             throw Erreurs.dejaPresent();
         }
+
+        // RG6 — une réussite remet le compteur à zéro.
+        limiteur.tracer(etudiant, codeNormalise, true, maintenant);
 
         return presences.save(
                 Presence.enregistrer(session, etudiant, SourcePresence.ETUDIANT, maintenant));

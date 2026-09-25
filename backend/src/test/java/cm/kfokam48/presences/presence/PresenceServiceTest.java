@@ -52,11 +52,14 @@ class PresenceServiceTest {
     @Mock
     private EtudiantService etudiants;
 
+    @Mock
+    private LimiteurDeTentatives limiteur;
+
     private Etudiant etudiant;
     private Session session;
 
     private PresenceService serviceA(Instant maintenant) {
-        return new PresenceService(presences, sessions, etudiants,
+        return new PresenceService(presences, sessions, etudiants, limiteur,
                 Clock.fixed(maintenant, ZoneOffset.UTC));
     }
 
