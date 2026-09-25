@@ -63,7 +63,7 @@ jobs:
           ./mvnw -B --no-transfer-progress verify \
             org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=Mc-Jordan_kfokam48-epreuve-KF48-YAO-218 \
-            -Dsonar.organization=mc-jordan \
+            -Dsonar.organization=mcjordan \
             -Dsonar.host.url=https://sonarcloud.io
 
       # Porte de qualité bloquante : une analyse qui échoue arrête la chaîne.
