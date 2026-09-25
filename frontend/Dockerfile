@@ -27,5 +27,8 @@ USER nginx:nginx
 
 EXPOSE 8081
 
+# 127.0.0.1 et non localhost : dans le conteneur, localhost resout d'abord en
+# IPv6 (::1), or nginx n'ecoute qu'en IPv4. La sonde echouait donc alors que le
+# service repondait parfaitement de l'exterieur.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8081/ >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:8081/ >/dev/null || exit 1

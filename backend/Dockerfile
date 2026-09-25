@@ -32,7 +32,9 @@ COPY --from=build --chown=presences:presences /build/application.jar application
 EXPOSE 8080
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=75"
 
+# 127.0.0.1 plutot que localhost : meme raison que pour le frontend, on ne
+# depend pas de l'ordre de resolution IPv6 puis IPv4.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=45s --retries=5 \
-  CMD curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"' || exit 1
+  CMD curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"' || exit 1
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar application.jar"]
