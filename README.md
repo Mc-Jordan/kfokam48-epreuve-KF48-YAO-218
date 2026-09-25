@@ -148,7 +148,7 @@ Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relect
 | 0 — Environnement | fait |
 | 1 — Analyse et conception | fait — jalon `[JALON] analyse` |
 | 2 — Première version | **fait** — jalon `[JALON] v0.1`, étiquette [`v0.1`](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/releases/tag/v0.1) |
-| 3 — Enveloppe | à venir — en attente du script `enveloppe` |
+| 3 — Enveloppe | à venir — l'enveloppe se demande au surveillant, le jalon `v0.1` étant poussé |
 | 4 — Version finale `v1.0` | à venir |
 
 Les douze exigences fonctionnelles sont livrées, et les vingt-cinq règles de gestion

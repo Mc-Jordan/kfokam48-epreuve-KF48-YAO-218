@@ -36,4 +36,4 @@ Nous conteneurisons les trois composants et nous faisons de `docker compose up` 
 
 **Ce que cela rend difficile.** Docker devient un prérequis — mais il l'était déjà, les tests d'intégration s'appuyant sur Testcontainers (`ENF7`). La première construction est longue ; les suivantes profitent du cache.
 
-**Ce qu'il faudra revoir.** À l'étape 3, un changement de schéma n'impose rien ici : Flyway s'applique au démarrage du backend. En revanche, si l'enveloppe ajoute un composant, il faudra l'ajouter à la composition et à la chaîne d'intégration.
+**Ce qu'il faudra revoir.** À l'étape 3, un changement de schéma n'impose rien ici : Flyway s'applique au démarrage du backend. En revanche, si le changement de l'étape 3 ajoute un composant, il faudra l'ajouter à la composition et à la chaîne d'intégration.

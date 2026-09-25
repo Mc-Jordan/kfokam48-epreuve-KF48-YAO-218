@@ -33,13 +33,13 @@ Règles :
 - Sujet à l'impératif présent, **72 caractères maximum**, **sans point final**.
 - Portées utilisées : `session`, `presence`, `exercice`, `relecture`, `tableau`, `api`, `bdd`, `front`, `docs`, `infra`.
 - **Tout commit qui met en œuvre une règle de gestion la cite** dans le corps : `Applique RG1.`
-- Un commit qui termine un ticket le ferme : `Closes #12`.
+- Un commit qui termine une issue la ferme : `Closes #12`.
 - **Aucun trailer `Co-Authored-By`.** Un hook `commit-msg` local le refuse.
 - Un commit = un changement cohérent. Pas de commit fourre-tout, pas de commit « wip ».
 
 ## 2. Branches
 
-Une branche par ticket, nommée d'après son numéro d'issue.
+Une branche par issue, nommée d'après son numéro.
 
 ```
 feat/<n°issue>-<slug>      fix/<n°issue>-<slug>
@@ -56,7 +56,7 @@ Aucun commit direct sur `main`, à l'exception des trois commits de jalon.
 - **Titre** = le résultat obtenu, pas la tâche effectuée.
 - **Corps** = le gabarit `.github/PULL_REQUEST_TEMPLATE.md`, avec `Closes #n`.
 - **Stratégie de fusion : `--no-ff`**, une seule pour toute l'épreuve.
-  *Justification :* le commit de fusion conserve la topologie des branches — elle prouve à elle seule la règle « une branche par ticket » — tout en préservant les commits atomiques, que `--squash` écraserait.
+  *Justification :* le commit de fusion conserve la topologie des branches — elle prouve à elle seule la règle « une branche par issue » — tout en préservant les commits atomiques, que `--squash` écraserait.
 - La branche est supprimée après fusion ; le commit de fusion en garde la trace.
 
 ## 4. Étiquettes et jalons
@@ -90,7 +90,7 @@ git push origin v0.1
 
 ## 6. Definition of Done
 
-Un ticket est terminé quand :
+Une issue est terminée quand :
 
 - [ ] Ses critères d'acceptation sont vérifiés, un par un
 - [ ] Les tests passent en local et en intégration continue
