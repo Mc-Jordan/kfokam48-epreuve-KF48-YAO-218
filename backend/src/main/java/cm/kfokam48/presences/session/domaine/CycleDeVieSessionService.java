@@ -93,8 +93,17 @@ public class CycleDeVieSessionService {
         }
 
         sessions.save(session);
+
+        // Le contrat compte des EXERCICES, pas des relectures. Depuis l'étape 3 un
+        // exercice en reçoit deux : renvoyer le nombre de relectures annoncerait au
+        // formateur deux fois plus d'exercices attribués qu'il n'y en a.
+        long exercicesAttribues = resultat.attribuees().stream()
+                .map(relecture -> relecture.getExercice().getId())
+                .distinct()
+                .count();
+
         return new ResultatCloture(sessionId,
-                resultat.attribuees().size(), resultat.nonAttribuables().size());
+                (int) exercicesAttribues, resultat.nonAttribuables().size());
     }
 
     /** Ce que la finalisation a produit. */

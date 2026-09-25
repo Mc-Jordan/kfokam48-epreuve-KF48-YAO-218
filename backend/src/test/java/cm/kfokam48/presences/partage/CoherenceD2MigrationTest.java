@@ -29,6 +29,8 @@ class CoherenceD2MigrationTest {
 
     private static final Pattern NOM_DANS_D2 = Pattern.compile("`((?:uq|ck|idx|fk)_[a-z_]+)`");
     private static final Pattern NOM_DANS_SQL = Pattern.compile("(?:CONSTRAINT|INDEX)\\s+([a-z_]+)");
+    private static final Pattern NOM_SUPPRIME =
+            Pattern.compile("DROP\\s+(?:CONSTRAINT|INDEX)\\s+(?:IF EXISTS\\s+)?([a-z_]+)");
     private static final Pattern TABLE_DANS_D2 = Pattern.compile("(?m)^\\s{4}([A-Z_]+) \\{");
     private static final Pattern TABLE_DANS_SQL = Pattern.compile("CREATE TABLE ([a-z_]+)");
 
@@ -48,7 +50,7 @@ class CoherenceD2MigrationTest {
     @DisplayName("toute contrainte nommée dans D2 existe dans les migrations, et réciproquement")
     void lesContraintesDuDiagrammeEtDesMigrationsCorrespondent() throws IOException {
         Set<String> dansLeDiagramme = extraire(NOM_DANS_D2, lireDiagramme());
-        Set<String> dansLesMigrations = extraire(NOM_DANS_SQL, lireMigrations());
+        Set<String> dansLesMigrations = contraintesEffectives(lireMigrations());
 
         Set<String> clesEtrangeresSimples = dansLesMigrations.stream()
                 .filter(nom -> nom.startsWith("fk_"))
@@ -62,6 +64,25 @@ class CoherenceD2MigrationTest {
         assertThat(dansLesMigrations)
                 .as("contraintes présentes dans les migrations mais absentes de D2")
                 .isSubsetOf(union(dansLeDiagramme, clesEtrangeresSimples));
+    }
+
+    /**
+     * Les contraintes que le schéma porte <strong>réellement</strong> : celles que les
+     * migrations créent, moins celles qu'elles suppriment.
+     *
+     * <p>Comparer à l'union de toutes les instructions serait faux dès la première
+     * migration qui retire une contrainte — l'étape 3 en retire deux. Une contrainte
+     * supprimée n'a plus à figurer dans {@code D2}, et l'y exiger reviendrait à figer
+     * le diagramme sur un schéma qui n'existe plus.</p>
+     *
+     * <p>Limite connue : une contrainte supprimée puis recréée sous le même nom serait
+     * considérée comme absente. Le cas ne se présente pas, et le jour où il se
+     * présentera, ce commentaire dira quoi corriger.</p>
+     */
+    private static Set<String> contraintesEffectives(String migrations) {
+        Set<String> creees = extraire(NOM_DANS_SQL, migrations);
+        creees.removeAll(extraire(NOM_SUPPRIME, migrations));
+        return creees;
     }
 
     private static String lireDiagramme() throws IOException {
