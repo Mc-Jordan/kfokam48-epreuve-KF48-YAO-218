@@ -65,13 +65,26 @@ L'objectif n'est pas d'évaluer les étudiants à la place du formateur, mais de
 
 ## 4. Exigences fonctionnelles
 
+Douze exigences. Les sept **Must** constituent le périmètre du jalon `v0.1`.
+
 | Réf | Exigence | Critère d'acceptation | Priorité |
 |---|---|---|---|
-| EF1 | L'étudiant marque sa présence à l'aide d'un code | Quand je saisis un code valide et non expiré, ma présence apparaît dans le tableau du formateur | Must |
-| EF2 | | | |
-| EF3 | | | |
+| **EF1** | Le formateur ouvre une session de cours et obtient un code de présence | Quand je soumets un titre et une promotion existante, alors la session est créée et je reçois un code, une date d'ouverture et une date d'expiration fixée quinze minutes plus tard | Must |
+| **EF2** | L'étudiant marque sa présence à l'aide du code | Quand je choisis mon nom dans la liste de ma promotion et que je saisis un code valide et non expiré, alors ma présence est enregistrée avec la source `ETUDIANT` et apparaît dans le tableau du formateur | Must |
+| **EF3** | Le système décourage la devinette de code | Quand j'ai saisi cinq codes erronés d'affilée, alors ma sixième tentative est refusée pendant deux minutes, puis redevient possible sans intervention | Should |
+| **EF4** | Le formateur ajoute une présence à la main | Quand j'ajoute un étudiant à une session ouverte sans saisir de code, alors sa présence est enregistrée avec la source `FORMATEUR` et se distingue visuellement des autres dans le détail de la session | Should |
+| **EF5** | L'étudiant dépose le lien de son exercice | Quand je suis présent à la session et que je soumets une adresse `http` ou `https` absolue, alors mon exercice est enregistré au statut `DEPOSE`, et une seconde tentative sur la même session est refusée | Must |
+| **EF6** | L'étudiant remplace le lien de son exercice | Quand la session est encore ouverte, alors je peux remplacer le lien de mon exercice autant de fois que nécessaire ; dès qu'elle est clôturée, le remplacement est refusé | Should |
+| **EF7** | Le formateur clôture la session et le système attribue les relecteurs | Quand je clôture une session ouverte, alors les dépôts sont fermés et chaque exercice reçoit au plus un relecteur tiré au hasard parmi les étudiants présents autres que son auteur ; le compte des exercices attribués et non attribuables m'est renvoyé | Must |
+| **EF8** | Le relecteur consulte les relectures qui lui incombent | Quand je consulte mes relectures, alors j'obtiens la liste des exercices qui m'ont été attribués avec leur lien et leur état, et rien d'autre | Must |
+| **EF9** | Le relecteur rend sa relecture, et la corrige | Quand je soumets une note entière comprise entre 0 et 20 et un commentaire, alors la relecture est enregistrée ; quand je la soumets à nouveau avant la finalisation de la session, alors elle est remplacée ; après la finalisation, la soumission est refusée | Must |
+| **EF10** | Le formateur finalise la session et fige les relectures | Quand je finalise une session déjà clôturée, alors toutes ses relectures deviennent définitives et le nombre de relectures figées m'est renvoyé ; finaliser une session non clôturée est refusé | Should |
+| **EF11** | L'étudiant consulte la note et le commentaire reçus | Quand mon exercice a été relu, alors je vois la note et le commentaire ; l'identité du relecteur n'apparaît dans aucune réponse ni dans aucun écran | Should |
+| **EF12** | Le formateur consulte le tableau récapitulatif de la promotion | Quand j'ouvre le tableau d'une promotion existante, alors j'obtiens pour chaque étudiant son nombre de présences, son nombre d'exercices déposés, la moyenne des notes reçues — vide s'il n'en a aucune — et le nombre de relectures qu'il doit encore rendre ; une promotion inconnue est refusée | Must |
 
-*Un critère d'acceptation se formule « quand … alors … ». S'il n'est pas vérifiable par quelqu'un d'autre que toi, ce n'en est pas un.*
+*Chaque critère est formulé « quand … alors … » et se vérifie sans connaître le code : c'est la condition pour qu'un tiers puisse le contrôler.*
+
+*Priorisation assumée :* `EF3`, `EF4`, `EF6`, `EF10` et `EF11` sont des `Should` parce qu'aucune n'est nécessaire pour dérouler le cycle complet d'une séance. Sans `EF10`, les relectures restent modifiables indéfiniment ; sans `EF11`, l'étudiant ne voit pas sa note, mais le formateur la voit. Ce sont des manques acceptables à `v0.1`, pas à `v1.0`.
 
 ## 5. Exigences non fonctionnelles
 
