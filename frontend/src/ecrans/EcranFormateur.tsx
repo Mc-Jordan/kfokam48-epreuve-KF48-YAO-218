@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { operations } from '../api/operations';
 import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
-import { Erreur, Requete } from '../composants/Etat';
+import { Erreur, Etat, Requete, Succes, Vide } from '../composants/Etat';
 import { ChoixEtudiant } from '../composants/ChoixEtudiant';
-import type { LigneTableau, PresenceDetail, SessionOuverte, SessionResume } from '../api/types';
+import type { LigneTableau, PresenceDetail, SessionOuverte, SessionResume, StatutSession }
+  from '../api/types';
 
 /**
  * Écran formateur (contrainte F2) — ouvrir une séance, ajouter une présence à la
@@ -14,6 +15,12 @@ import type { LigneTableau, PresenceDetail, SessionOuverte, SessionResume } from
 /** Le choix de la promotion relève d'un écran d'administration, hors périmètre (§3). */
 const PROMOTION = 1;
 
+const VARIANTE_STATUT = {
+  OUVERTE: 'ouvert',
+  CLOTUREE: 'cloture',
+  FINALISEE: 'finalise',
+} as const;
+
 export default function EcranFormateur() {
   const sessions = useRequete<SessionResume[]>(() => operations.listerSessions(PROMOTION));
 
@@ -21,87 +28,41 @@ export default function EcranFormateur() {
     <section>
       <h1>Formateur</h1>
       <OuvertureDeSeance onOuverte={sessions.recharger} />
-      <h2>Séances de la promotion</h2>
-      <Requete etat={sessions} quoi="des séances">
-        {(liste) =>
-          liste.length === 0 ? (
-            <p>Aucune séance pour l'instant.</p>
-          ) : (
-            <table>
-              <caption className="sr-only">Séances, de la plus récente à la plus ancienne</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Titre</th>
-                  <th scope="col">État</th>
-                  <th scope="col">Ouverte à</th>
-                  <th scope="col">Code valable jusqu'à</th>
-                  <th scope="col">Action</th>
-                  <th scope="col">Présences</th>
-                </tr>
-              </thead>
-              <tbody>
-                {liste.map((session) => (
-                  <LigneSeance key={session.id} session={session} onChange={sessions.recharger} />
-                ))}
-              </tbody>
-            </table>
-          )
-        }
-      </Requete>
+
+      <div className="carte">
+        <h2>Séances de la promotion</h2>
+        <Requete etat={sessions} quoi="des séances">
+          {(liste) =>
+            liste.length === 0 ? (
+              <Vide>Aucune séance pour l'instant. Ouvrez-en une ci-dessus.</Vide>
+            ) : (
+              <div className="tableau-defilant">
+                <table>
+                  <caption className="sr-only">Séances, de la plus récente à la plus ancienne</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Titre</th>
+                      <th scope="col">État</th>
+                      <th scope="col">Ouverte à</th>
+                      <th scope="col">Code jusqu'à</th>
+                      <th scope="col">Action</th>
+                      <th scope="col">Présences</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liste.map((session) => (
+                      <LigneSeance key={session.id} session={session} onChange={sessions.recharger} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </Requete>
+      </div>
 
       <TableauRecapitulatif />
     </section>
-  );
-}
-
-function TableauRecapitulatif() {
-  const tableau = useRequete<LigneTableau[]>(() => operations.consulterTableau(PROMOTION));
-
-  return (
-    <>
-      <h2>Suivi de la promotion</h2>
-      <Requete etat={tableau} quoi="du tableau">
-        {(lignes) =>
-          lignes.length === 0 ? (
-            <p>Aucun étudiant dans cette promotion.</p>
-          ) : (
-            <table>
-              <caption className="sr-only">Récapitulatif par étudiant</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Étudiant</th>
-                  <th scope="col">Présences</th>
-                  <th scope="col">Exercices déposés</th>
-                  <th scope="col">Moyenne reçue</th>
-                  <th scope="col">Relectures à rendre</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lignes.map((ligne) => (
-                  <tr key={ligne.etudiantId}>
-                    <th scope="row">{ligne.nom}</th>
-                    <td>{ligne.presences}</td>
-                    <td>{ligne.exercicesDeposes}</td>
-                    {/* La moyenne vient de l'API et n'est ni recalculée ni
-                        réarrondie ici (RG24, contrainte F3). Vide veut dire
-                        « aucune note reçue », ce qui n'est pas zéro. */}
-                    <td>
-                      {ligne.moyenne ?? '—'}
-                      {/* RG26 — une moyenne qui agrège une note pas encore
-                          définitive ne doit pas se lire comme acquise. */}
-                      {ligne.moyenne !== null && ligne.moyenneProvisoire && (
-                        <em title="Au moins un exercice attend sa seconde relecture"> (provisoire)</em>
-                      )}
-                    </td>
-                    <td>{ligne.relecturesEnAttente > 0 ? <strong>{ligne.relecturesEnAttente}</strong> : 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )
-        }
-      </Requete>
-    </>
   );
 }
 
@@ -128,15 +89,19 @@ function OuvertureDeSeance({ onOuverte }: { onOuverte: () => void }) {
   }
 
   return (
-    <>
+    <div className="carte">
+      <h2>Ouvrir une séance</h2>
       <form onSubmit={envoyer}>
-        <h2>Ouvrir une séance</h2>
-        <label htmlFor="titre">Titre</label>{' '}
-        <input id="titre" value={titre} onChange={(e) => setTitre(e.target.value)}
-               placeholder="Algorithmique" required />{' '}
-        <button type="submit" disabled={enCours || titre.trim() === ''}>
-          {enCours ? 'Ouverture…' : 'Ouvrir'}
-        </button>
+        <div className="ligne-champs">
+          <div className="champ champ--moyen" style={{ flex: '1 1 18rem', marginBottom: 0 }}>
+            <label htmlFor="titre">Titre de la séance</label>
+            <input id="titre" value={titre} onChange={(e) => setTitre(e.target.value)}
+                   placeholder="Algorithmique — tris et complexité" required />
+          </div>
+          <button type="submit" disabled={enCours || titre.trim() === ''}>
+            {enCours ? 'Ouverture…' : 'Ouvrir la séance'}
+          </button>
+        </div>
       </form>
 
       {erreur && <Erreur erreur={erreur} />}
@@ -144,17 +109,15 @@ function OuvertureDeSeance({ onOuverte }: { onOuverte: () => void }) {
       {ouverture && (
         <div role="status">
           <h3>Code de présence</h3>
-          {/* Le code se dicte à voix haute : il doit être lisible de loin. */}
-          <p style={{ fontSize: '2.5rem', fontFamily: 'monospace', letterSpacing: '0.2em' }}>
-            {ouverture.code}
-          </p>
+          {/* Le code se dicte à voix haute à une salle : il doit se lire du fond. */}
+          <p className="code-presence">{ouverture.code}</p>
           <p>
-            Valable jusqu'à {new Date(ouverture.expirationAt).toLocaleTimeString('fr-FR')}
-            {' '}— quinze minutes après l'ouverture.
+            Valable jusqu'à <strong>{heure(ouverture.expirationAt)}</strong>, soit quinze
+            minutes après l'ouverture.
           </p>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -164,19 +127,11 @@ function LigneSeance({ session, onChange }: { session: SessionResume; onChange: 
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
 
-  async function cloturer() {
+  async function agir(action: () => Promise<string>) {
     setEnCours(true);
     setErreur(null);
     try {
-      const resultat = await operations.cloturerSession(session.id);
-      // Le formateur doit savoir tout de suite que certains exercices ne seront
-      // jamais relus : le découvrir plus tard au tableau serait trop tard (RG17).
-      setMessage(
-        `${resultat.exercicesAttribues} exercice(s) attribué(s)` +
-        (resultat.exercicesNonAttribuables > 0
-          ? `, ${resultat.exercicesNonAttribuables} sans relecteur possible`
-          : ''),
-      );
+      setMessage(await action());
       onChange();
     } catch (e) {
       setErreur(e as ErreurApi);
@@ -185,58 +140,53 @@ function LigneSeance({ session, onChange }: { session: SessionResume; onChange: 
     }
   }
 
-  async function finaliser() {
-    setEnCours(true);
-    setErreur(null);
-    try {
-      const resultat = await operations.finaliserSession(session.id);
-      setMessage(`${resultat.relecturesFigees} relecture(s) figée(s) définitivement.`);
-      onChange();
-    } catch (e) {
-      setErreur(e as ErreurApi);
-    } finally {
-      setEnCours(false);
-    }
-  }
+  const cloturer = () => agir(async () => {
+    const r = await operations.cloturerSession(session.id);
+    // Le formateur doit savoir tout de suite que certains exercices ne seront
+    // jamais relus : le découvrir plus tard au tableau serait trop tard (RG17).
+    return `${r.exercicesAttribues} exercice(s) attribué(s)` +
+      (r.exercicesNonAttribuables > 0
+        ? `, ${r.exercicesNonAttribuables} sans relecteur possible`
+        : '');
+  });
+
+  const finaliser = () => agir(async () => {
+    const r = await operations.finaliserSession(session.id);
+    return `${r.relecturesFigees} relecture(s) figée(s) définitivement.`;
+  });
 
   return (
     <>
       <tr>
-        <td>{session.titre}</td>
-        <td>{session.statut}</td>
-        <td>{new Date(session.ouvertureAt).toLocaleTimeString('fr-FR')}</td>
-        <td>{new Date(session.expirationAt).toLocaleTimeString('fr-FR')}</td>
+        <th scope="row">{session.titre}</th>
+        <td><Etat variante={VARIANTE_STATUT[session.statut as StatutSession]}>{session.statut}</Etat></td>
+        <td className="nombre">{heure(session.ouvertureAt)}</td>
+        <td className="nombre">{heure(session.expirationAt)}</td>
         <td>
           {/* L'action proposée découle du statut renvoyé par l'API, jamais d'une
               date recalculée ici : la clôture est une décision, pas un délai (F3). */}
           {session.statut === 'OUVERTE' && (
-            <button type="button" onClick={cloturer} disabled={enCours}>
-              Clôturer et attribuer
-            </button>
+            <button type="button" onClick={cloturer} disabled={enCours}>Clôturer</button>
           )}
           {session.statut === 'CLOTUREE' && (
-            <button type="button" onClick={finaliser} disabled={enCours}>
-              Finaliser et figer
-            </button>
+            <button type="button" onClick={finaliser} disabled={enCours}>Finaliser</button>
           )}
-          {session.statut === 'FINALISEE' && <span>Terminée</span>}
+          {session.statut === 'FINALISEE' && <small>Terminée</small>}
         </td>
         <td>
-          <button type="button" onClick={() => setDetailOuvert(!detailOuvert)}>
-            {detailOuvert ? 'Masquer' : 'Présences'}
+          <button type="button" className="bouton--discret"
+                  aria-expanded={detailOuvert}
+                  onClick={() => setDetailOuvert(!detailOuvert)}>
+            {detailOuvert ? 'Masquer' : 'Voir'}
           </button>
         </td>
       </tr>
-      {detailOuvert && (
-        <tr>
-          <td colSpan={6}><DetailDesPresences session={session} /></td>
-        </tr>
-      )}
-      {(message || erreur) && (
+      {(message || erreur || detailOuvert) && (
         <tr>
           <td colSpan={6}>
-            {message && <span role="status">{message}</span>}
+            {message && <Succes>{message}</Succes>}
             {erreur && <Erreur erreur={erreur} />}
+            {detailOuvert && <DetailDesPresences session={session} />}
           </td>
         </tr>
       )}
@@ -270,18 +220,21 @@ function DetailDesPresences({ session }: { session: SessionResume }) {
 
   return (
     <>
+      <h3>Présences</h3>
       <Requete etat={presences} quoi="des présences">
         {(liste) =>
           liste.length === 0 ? (
-            <p>Personne n'est encore déclaré présent.</p>
+            <Vide>Personne n'est encore déclaré présent.</Vide>
           ) : (
-            <ul>
+            <ul className="liste-nue">
               {liste.map((presence) => (
                 <li key={presence.etudiantId}>
                   {presence.nom}
-                  {/* Q14 : l'ajout manuel doit se voir. Le mentionner en clair
-                      plutôt que par une icône, que rien n'expliquerait. */}
-                  {presence.source === 'FORMATEUR' && <em> — ajouté par le formateur</em>}
+                  {/* Q14 : l'ajout manuel doit se voir. En toutes lettres plutôt
+                      que par une icône, que rien n'expliquerait. */}
+                  {presence.source === 'FORMATEUR' && (
+                    <> <Etat variante="cloture">ajouté par le formateur</Etat></>
+                  )}
                 </li>
               ))}
             </ul>
@@ -292,15 +245,78 @@ function DetailDesPresences({ session }: { session: SessionResume }) {
       {/* L'ajout manuel n'a de sens que tant que la séance accepte des présences :
           après la clôture, sa composition est figée et a servi au tirage (RG13). */}
       {session.statut === 'OUVERTE' && (
-        <p>
-          <ChoixEtudiant promotionId={PROMOTION} valeur={etudiantId} onChange={setEtudiantId} />{' '}
-          <button type="button" onClick={ajouter} disabled={enCours || etudiantId === null}>
-            {enCours ? 'Ajout…' : 'Ajouter cette présence'}
-          </button>
-        </p>
+        <fieldset>
+          <legend>Ajouter une présence à la main</legend>
+          <div className="ligne-champs">
+            <ChoixEtudiant promotionId={PROMOTION} valeur={etudiantId} onChange={setEtudiantId} />
+            <button type="button" onClick={ajouter} disabled={enCours || etudiantId === null}
+                    style={{ marginBottom: 'var(--e4)' }}>
+              {enCours ? 'Ajout…' : 'Ajouter'}
+            </button>
+          </div>
+        </fieldset>
       )}
 
       {erreur && <Erreur erreur={erreur} />}
     </>
   );
+}
+
+function TableauRecapitulatif() {
+  const tableau = useRequete<LigneTableau[]>(() => operations.consulterTableau(PROMOTION));
+
+  return (
+    <div className="carte">
+      <h2>Suivi de la promotion</h2>
+      <Requete etat={tableau} quoi="du tableau">
+        {(lignes) =>
+          lignes.length === 0 ? (
+            <Vide>Aucun étudiant dans cette promotion.</Vide>
+          ) : (
+            <div className="tableau-defilant">
+              <table>
+                <caption className="sr-only">Récapitulatif par étudiant</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Étudiant</th>
+                    <th scope="col">Présences</th>
+                    <th scope="col">Exercices</th>
+                    <th scope="col">Moyenne reçue</th>
+                    <th scope="col">Relectures à rendre</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lignes.map((ligne) => (
+                    <tr key={ligne.etudiantId}>
+                      <th scope="row">{ligne.nom}</th>
+                      <td className="nombre">{ligne.presences}</td>
+                      <td className="nombre">{ligne.exercicesDeposes}</td>
+                      {/* La moyenne vient de l'API et n'est ni recalculée ni
+                          réarrondie ici (RG24, contrainte F3). Vide veut dire
+                          « aucune note reçue », ce qui n'est pas zéro. */}
+                      <td className="nombre">
+                        {ligne.moyenne ?? '—'}
+                        {ligne.moyenne !== null && ligne.moyenneProvisoire && (
+                          <> <Etat variante="provisoire">provisoire</Etat></>
+                        )}
+                      </td>
+                      <td className="nombre">
+                        {ligne.relecturesEnAttente > 0
+                          ? <strong>{ligne.relecturesEnAttente}</strong>
+                          : 0}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
+      </Requete>
+    </div>
+  );
+}
+
+function heure(iso: string) {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }

@@ -25,8 +25,8 @@ export function ChoixEtudiant({
   return (
     <Requete etat={etudiants} quoi="de la liste des étudiants">
       {(liste) => (
-        <>
-          <label htmlFor="etudiant">Je suis</label>{' '}
+        <div className="champ champ--moyen">
+          <label htmlFor="etudiant">Je suis</label>
           <select
             id="etudiant"
             value={valeur ?? ''}
@@ -37,7 +37,7 @@ export function ChoixEtudiant({
               <option key={etudiant.id} value={etudiant.id}>{etudiant.nom}</option>
             ))}
           </select>
-        </>
+        </div>
       )}
     </Requete>
   );
