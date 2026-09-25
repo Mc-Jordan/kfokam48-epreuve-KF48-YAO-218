@@ -2,8 +2,10 @@
 
 Application de suivi de formation : un formateur ouvre une session et obtient un code de
 présence, les étudiants marquent leur présence puis déposent le lien de leur exercice,
-le système assigne chaque exercice à un pair pour relecture, et le formateur suit
-l'ensemble dans un tableau récapitulatif.
+le système assigne chaque exercice à **deux** pairs pour relecture, et le formateur
+suit l'ensemble dans un tableau récapitulatif. La note d'un exercice est la moyenne
+de ses deux relectures ; tant qu'une seule est rendue, elle s'affiche mais reste
+marquée **provisoire**.
 
 **Épreuve finale fullstack KFOKAM48** · NANDJO NGOULE Michele Jordan · **KF48-YAO-218** · Centre de Yaoundé
 
@@ -100,6 +102,8 @@ Ouvrez <http://localhost:8081/formateur> et vous verrez :
 | Trois séances, une par état — `OUVERTE`, `CLOTUREE`, `FINALISEE` | Le cycle de vie complet |
 | Un exercice `NON_ATTRIBUABLE` (Gaston NKOLO) | `RG17` — aucun relecteur éligible à la clôture |
 | Une relecture attribuée jamais rendue | `RG23` — le relecteur défaillant de `Q11` |
+| Un exercice relu **deux fois** — note 16, définitive | `RG24` — moyenne de 15 et 17 |
+| Un exercice relu **une seule fois** — note 13, **provisoire** | `RG26` — le cas que le client décrit |
 | Une présence « ajoutée par le formateur » (Francine MBALLA) | `RG4` et `Q14` |
 | Un étudiant sans aucune note (Hortense ATANGANA) | `RG24` — moyenne vide, qui n'est pas un zéro |
 | Une séance ouverte au code encore valable | Pour que vous puissiez agir vous-même |
@@ -114,10 +118,12 @@ l'écran étudiant.
 |---|---|
 | **Formateur** | Ouvrir une séance et obtenir son code · ajouter une présence à la main · clôturer, ce qui ferme les dépôts et attribue les relecteurs · finaliser, ce qui fige les relectures · suivre la promotion |
 | **Étudiant** | Marquer sa présence · déposer le lien de son exercice · remplacer ce lien tant que la séance est ouverte · consulter la note reçue |
-| **Relecteur** | Consulter les exercices qui lui sont attribués · rendre une note et un commentaire · les corriger jusqu'à la finalisation |
+| **Relecteur** | Consulter les exercices qui lui sont attribués — deux par séance · rendre une note et un commentaire · les corriger jusqu'à la finalisation |
 
 Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relecture a
-été attribuée.
+été attribuée. **Chaque exercice en reçoit deux**, tirés au sort parmi les étudiants
+présents, l'auteur exclu. Une séance à deux présents n'en permet qu'un : l'exercice
+est alors attribué partiellement et sa note reste provisoire.
 
 ## Limites connues
 
@@ -129,6 +135,12 @@ Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relect
   d'administration explicitement hors périmètre.
 - **L'étudiant désigne son exercice par son numéro**, affiché au moment du dépôt.
   Sans authentification, il n'existe pas d'autre moyen de le retrouver.
+- **Les séances clôturées avant le changement de l'étape 3 gardent un relecteur
+  unique.** Le client a écrit « à partir de maintenant » ; réattribuer
+  rétroactivement modifierait des moyennes déjà communiquées.
+- **Aucun test automatisé sur l'interface.** Les trois écrans sont vérifiés à la
+  main et par le parcours complet en HTTP. Choix de temps assumé : le sujet ne note
+  pas le rendu visuel, et toute la logique métier est côté serveur.
 
 ## Documentation
 
@@ -148,10 +160,13 @@ Le relecteur n'est pas un acteur distinct : c'est un étudiant à qui une relect
 | 0 — Environnement | fait |
 | 1 — Analyse et conception | fait — jalon `[JALON] analyse` |
 | 2 — Première version | **fait** — jalon `[JALON] v0.1`, étiquette [`v0.1`](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/releases/tag/v0.1) |
-| 3 — Enveloppe | à venir — l'enveloppe se demande au surveillant, le jalon `v0.1` étant poussé |
-| 4 — Version finale `v1.0` | à venir |
+| 3 — Enveloppe | **fait** — un bug corrigé, un changement de besoin absorbé |
+| 4 — Version finale | **fait** — jalon `[JALON] v1.0`, étiquette [`v1.0`](https://github.com/Mc-Jordan/kfokam48-epreuve-KF48-YAO-218/releases/tag/v1.0) |
+| 5 — Soumission | dépôt sur la plateforme |
 
-Les douze exigences fonctionnelles sont livrées, et les vingt-cinq règles de gestion
-sont portées par du code et couvertes par des tests. Le détail est dans le
+Les douze exigences fonctionnelles sont livrées, et les **vingt-six** règles de
+gestion sont portées par du code et couvertes par des tests. Le détail est dans le
 [`CHANGELOG`](CHANGELOG.md), la correspondance exigence par exigence dans
-[`docs/TRACABILITE.md`](docs/TRACABILITE.md).
+[`docs/TRACABILITE.md`](docs/TRACABILITE.md), et le raisonnement dans
+[`docs/CAHIER_DES_CHARGES.md`](docs/CAHIER_DES_CHARGES.md) — dont la section 7, où
+sont écrites les contradictions du client et les décisions prises à sa place.
