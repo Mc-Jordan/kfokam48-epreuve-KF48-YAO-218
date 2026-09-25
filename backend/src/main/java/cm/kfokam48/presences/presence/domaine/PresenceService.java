@@ -5,6 +5,7 @@ import cm.kfokam48.presences.etudiant.EtudiantService;
 import cm.kfokam48.presences.partage.erreur.Erreurs;
 import cm.kfokam48.presences.session.domaine.Session;
 import cm.kfokam48.presences.session.domaine.SessionRepository;
+import cm.kfokam48.presences.session.domaine.StatutSession;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +69,36 @@ public class PresenceService {
 
         return presences.save(
                 Presence.enregistrer(session, etudiant, SourcePresence.ETUDIANT, maintenant));
+    }
+
+    /**
+     * EF4 — le formateur enregistre une présence à la main.
+     *
+     * <p>Ni code, ni contrôle d'expiration : c'est exactement la situation que Q14
+     * décrit — « il arrive qu'un étudiant ait un souci de téléphone ». Exiger le
+     * code ici serait absurde, puisque c'est souvent lui qui a échoué.</p>
+     *
+     * <p>La présence porte {@code source = FORMATEUR} (RG4) : l'ajout doit se voir,
+     * le client l'a demandé explicitement. La seule limite est la clôture — après
+     * elle, la composition de la séance est figée et sert au tirage (RG13).</p>
+     */
+    @Transactional
+    public Presence enregistrerManuellement(Long sessionId, Long etudiantId) {
+        Session session = sessions.findById(sessionId).orElseThrow(Erreurs::sessionInconnue);
+        Etudiant etudiant = etudiants.parIdentifiant(etudiantId);
+
+        // RG5 — possible même après l'expiration du code, mais pas après la clôture.
+        if (session.getStatut() != StatutSession.OUVERTE) {
+            throw Erreurs.sessionFermee();
+        }
+
+        // RG3 — l'unicité vaut quelle que soit la source.
+        if (presences.existsBySessionIdAndEtudiantId(sessionId, etudiant.getId())) {
+            throw Erreurs.dejaPresent();
+        }
+
+        return presences.save(Presence.enregistrer(
+                session, etudiant, SourcePresence.FORMATEUR, Instant.now(horloge)));
     }
 
     @Transactional(readOnly = true)
