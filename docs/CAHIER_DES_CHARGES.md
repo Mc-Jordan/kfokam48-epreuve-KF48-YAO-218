@@ -90,19 +90,46 @@ Douze exigences. Les sept **Must** constituent le périmètre du jalon `v0.1`.
 
 | Réf | Exigence | Comment on la vérifie |
 |---|---|---|
-| ENF1 | L'interface de marquage de présence est utilisable sur un téléphone | |
-| ENF2 | Le tableau du formateur répond en moins de 2 s pour une promotion de 60 étudiants | |
+| **ENF1** | L'écran de marquage de présence est utilisable sur un téléphone tenu d'une main | Le parcours « choisir son nom, saisir le code, valider » s'effectue sans défilement horizontal sur une fenêtre de 360 px de large, avec des zones tactiles d'au moins 44 px |
+| **ENF2** | Le tableau du formateur répond en moins de deux secondes pour une promotion de soixante étudiants ayant suivi trente sessions | Le jeu de démonstration charge cette volumétrie ; on mesure le temps de réponse de `GET /api/tableau` et on vérifie qu'il n'exécute pas une requête par étudiant |
+| **ENF3** | Toutes les erreurs, sans exception, respectent le format imposé `{ code, message }` | Un test d'intégration parcourt chaque code d'erreur recensé en section 8 et vérifie le statut HTTP, la présence des deux champs et l'absence de trace d'exécution ; aucune page d'erreur par défaut ne doit apparaître |
+| **ENF4** | L'application supporte la volumétrie d'une année de formation | Trois promotions de soixante étudiants, trente sessions par promotion, un exercice et une relecture par étudiant et par session, soit environ cinq mille cinq cents relectures : les index posés sur les clés étrangères et sur le code de session le permettent |
+| **ENF5** | Un tiers démarre l'application depuis un clone vierge | `git clone` puis `docker compose up` dans un dossier vide, sur une machine sans base locale, aboutit à une application peuplée du jeu de démonstration |
+| **ENF6** | Le schéma de base est versionné et rejouable | Les migrations Flyway s'appliquent sur une base vide comme sur une base déjà migrée ; `ddl-auto` reste à `validate` hors tests |
+| **ENF7** | Deux tests prouvent quelque chose, et tournent sur un poste vierge | Un test unitaire sur une règle de gestion réelle et un test d'intégration sur un point d'entrée, exécutés par `./mvnw verify` sans base installée localement, la base de test étant fournie par Testcontainers |
+| **ENF8** | L'absence d'authentification est une décision, pas une faille ignorée | Le périmètre l'énonce (§3), la conséquence est écrite : aucune donnée personnelle sensible n'est stockée, et le dispositif n'a pas valeur de registre opposable |
 
 ## 6. Règles de gestion
 
 | Réf | Règle | Source |
 |---|---|---|
-| RG1 | Un code de présence expire 15 minutes après l'ouverture de la session | Q2 |
-| RG2 | Un étudiant ne peut pas relire son propre exercice | Q5 |
-| RG3 | Une note est un entier compris entre 0 et 20 | Q9 |
-| RG4 | | |
+| **RG1** | Le code d'une session expire quinze minutes après l'ouverture de celle-ci | `Q2` |
+| **RG2** | Le code d'une session est unique : deux sessions ne peuvent pas porter le même code | hypothèse — imposée par `POST /api/presences`, qui n'identifie la session que par son code |
+| **RG3** | Une présence est unique pour un couple session-étudiant : un étudiant ne peut être présent deux fois à la même session | hypothèse — imposée par le `409 DEJA_PRESENT` du contrat |
+| **RG4** | Toute présence porte une source, `ETUDIANT` ou `FORMATEUR`, et cette source est visible du formateur | `Q14` |
+| **RG5** | Le formateur peut enregistrer une présence sans code, y compris après l'expiration de celui-ci, tant que la session est ouverte | `Q14` |
+| **RG6** | Après cinq tentatives de code erronées consécutives, l'étudiant ne peut plus tenter de marquer sa présence pendant deux minutes. Une tentative réussie ou l'écoulement du délai remet le compteur à zéro | `Q4` |
+| **RG7** | Un étudiant dépose au plus un exercice par session | contrat — `409 EXERCICE_DEJA_DEPOSE` |
+| **RG8** | Le dépôt d'un exercice exige une présence enregistrée sur la session, quelle qu'en soit la source | hypothèse — voir §7, trou n°3 |
+| **RG9** | Le lien d'un exercice est une adresse absolue de schéma `http` ou `https` | contrat — `400 LIEN_INVALIDE` |
+| **RG10** | Le lien d'un exercice est remplaçable tant que la session est ouverte, et ne l'est plus dès la clôture | `Q13`, lue à la lumière de l'arbitrage sur le moment du tirage (§7, trou n°2) |
+| **RG11** | Le dépôt d'un exercice reste possible après l'expiration du code, jusqu'à la clôture de la session | `Q12` |
+| **RG12** | Une session parcourt trois états dans cet ordre : `OUVERTE`, `CLOTUREE`, `FINALISEE`. Aucun retour en arrière n'est possible | hypothèse — voir §7, contradiction sur le mot « clôturer » |
+| **RG13** | La clôture ferme les dépôts et déclenche l'attribution des relecteurs | hypothèse — arbitrage du trou n°2 |
+| **RG14** | L'attribution tire au hasard, pour chaque exercice, un relecteur parmi les étudiants présents à la session, l'auteur exclu | `Q7` et `Q5` |
+| **RG15** | Un exercice reçoit au plus un relecteur | `Q6` |
+| **RG16** | Un étudiant se voit attribuer au plus une relecture par session | hypothèse — le dépôt exigeant la présence (`RG8`), il y a toujours au moins autant de présents que d'exercices, donc une répartition sans doublon existe dès que deux étudiants sont présents |
+| **RG17** | Lorsqu'aucun relecteur éligible n'existe au moment de la clôture, l'exercice prend l'état `NON_ATTRIBUABLE`, qui est terminal et se distingue de l'attente au tableau du formateur | hypothèse — arbitrage du trou n°1 |
+| **RG18** | Une note est un nombre entier compris entre 0 et 20 inclus | `Q9` |
+| **RG19** | Un étudiant ne peut jamais relire son propre exercice | `Q5` |
+| **RG20** | Une relecture rendue reste modifiable par son relecteur tant que la session n'est pas finalisée | `Q10`, retenue contre `Q15` — voir §7 |
+| **RG21** | La finalisation fige définitivement toutes les relectures de la session ; aucune modification n'est plus acceptée | `Q10` et `Q15` conciliées |
+| **RG22** | L'auteur d'un exercice voit la note et le commentaire reçus, jamais l'identité de son relecteur | `Q8` |
+| **RG23** | Un exercice attribué dont la relecture n'a pas été rendue reste en attente, et cette attente est visible du formateur | `Q11` |
+| **RG24** | La moyenne d'un étudiant est calculée par le serveur sur les seules relectures rendues le concernant, et vaut « vide » lorsqu'il n'en a aucune | `Q16` et contrainte `F3` |
+| **RG25** | Toutes les réponses d'erreur, sans exception, portent le corps `{ code, message }`, le code étant un identifiant stable en majuscules et le message une phrase en français | contrat |
 
-*Numérote-les. Tu les citeras dans tes issues, tes messages de commit et tes tests. Une règle qu'on ne peut pas citer est une règle qu'on oublie.*
+*Ces vingt-cinq règles sont citées par leur référence dans les issues, dans les messages de commit et dans les noms de tests. Une règle qu'on ne peut pas citer est une règle qu'on oublie.*
 
 ## 7. Zones d'ombre, hypothèses et contradictions
 
