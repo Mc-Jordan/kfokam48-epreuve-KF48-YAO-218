@@ -77,8 +77,11 @@ class JeuDeDemonstrationIT {
     void devraitMontrerUneMoyenneCalculee_RG24() throws Exception {
         mockMvc.perform(get("/api/tableau").param("promotionId", "1"))
                 .andExpect(status().isOk())
-                // Awa NJOYA reçoit 16 en séance 1 et 15 en séance 2.
-                .andExpect(jsonPath("$[?(@.nom == 'Awa NJOYA')].moyenne").value(15.50));
+                // Awa NJOYA : 16 en séance 1 (un seul relecteur, séance finalisée
+                // avant le changement) et moyenne de 15 et 17 en séance 2, soit 16.
+                // La moyenne porte sur les notes d'EXERCICE, pas sur les notes brutes.
+                .andExpect(jsonPath("$[?(@.nom == 'Awa NJOYA')].moyenne").value(16.00))
+                .andExpect(jsonPath("$[?(@.nom == 'Awa NJOYA')].moyenneProvisoire").value(false));
     }
 
     @Test
@@ -88,6 +91,42 @@ class JeuDeDemonstrationIT {
                 .andExpect(status().isOk())
                 // Awa doit encore relire l'exercice de Biloa, jamais rendu.
                 .andExpect(jsonPath("$[?(@.nom == 'Awa NJOYA')].relecturesEnAttente").value(1));
+    }
+
+    @Test
+    @DisplayName("RG24, RG26 — une note provisoire est visible et signalée comme telle")
+    void devraitMontrerUneNoteProvisoire_RG26() throws Exception {
+        // Exercice 7 : un relecteur a rendu 13, l'autre non. La note s'affiche,
+        // marquée provisoire — c'est exactement ce que le client a demandé.
+        mockMvc.perform(get("/api/exercices/{id}/relecture", 7))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.note").value(13.00))
+                .andExpect(jsonPath("$.provisoire").value(true))
+                .andExpect(jsonPath("$.relecturesRendues").value(1))
+                .andExpect(jsonPath("$.relecturesAttendues").value(2))
+                .andExpect(jsonPath("$.statut").value("RELU_PARTIEL"));
+    }
+
+    @Test
+    @DisplayName("RG24 — deux relectures rendues donnent une note définitive, moyenne des deux")
+    void devraitMontrerUneNoteDefinitive_RG24() throws Exception {
+        // Exercice 6 : 15 et 17 rendus, la note est 16 et elle est définitive.
+        mockMvc.perform(get("/api/exercices/{id}/relecture", 6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.note").value(16.00))
+                .andExpect(jsonPath("$.provisoire").value(false))
+                .andExpect(jsonPath("$.statut").value("RELU"))
+                .andExpect(jsonPath("$.commentaires.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("RG26 — le tableau distingue une moyenne provisoire d'une moyenne acquise")
+    void devraitSignalerUneMoyenneProvisoireAuTableau_RG26() throws Exception {
+        mockMvc.perform(get("/api/tableau").param("promotionId", "1"))
+                .andExpect(status().isOk())
+                // Biloa attend encore la seconde relecture de son exercice 7.
+                .andExpect(jsonPath("$[?(@.nom == 'Biloa MANGA')].moyenneProvisoire").value(true))
+                .andExpect(jsonPath("$[?(@.nom == 'Awa NJOYA')].moyenneProvisoire").value(false));
     }
 
     @Test

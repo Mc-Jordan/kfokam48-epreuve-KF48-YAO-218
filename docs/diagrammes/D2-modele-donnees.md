@@ -54,7 +54,7 @@ erDiagram
         bigint      session_id FK "NOT NULL"
         bigint      etudiant_id FK "NOT NULL"
         text        lien "NOT NULL -- RG9"
-        varchar     statut "NOT NULL, CHECK in DEPOSE EN_ATTENTE_RELECTURE RELU NON_ATTRIBUABLE"
+        varchar     statut "NOT NULL, CHECK in DEPOSE EN_ATTENTE_RELECTURE RELU_PARTIEL RELU NON_ATTRIBUABLE"
         timestamptz depose_at "NOT NULL"
         timestamptz modifie_at "NULL"
     }
@@ -93,7 +93,7 @@ Une règle d'unicité absente d'ici sera absente de la migration. Chacune est do
 | *(supprimée en V3)* uq_relectures_session_relecteur | `relectures` | — | `RG16` a changé : un étudiant relit désormais **deux** exercices par session. La contrainte, qui en interdisait un second, devait disparaître ; la limite à deux est tenue par l'algorithme d'attribution et vérifiée par test |
 | `fk_relectures_exercice_session` | `relectures` | `FOREIGN KEY (exercice_id, session_id) REFERENCES exercices (id, session_id)` | verrouille la dénormalisation : `relectures.session_id` ne peut pas diverger de celle de son exercice |
 | `uq_exercices_id_session` | `exercices` | `UNIQUE (id, session_id)` | cible de la clé étrangère composite ci-dessus |
-| `ck_exercices_statut` | `exercices` | `CHECK (statut IN ('DEPOSE','EN_ATTENTE_RELECTURE','RELU','NON_ATTRIBUABLE'))` | `RG13`, `RG17` — les quatre états de `D4`, et eux seuls |
+| `ck_exercices_statut` | `exercices` | `CHECK (statut IN ('DEPOSE','EN_ATTENTE_RELECTURE','RELU_PARTIEL','RELU','NON_ATTRIBUABLE'))` | `RG13`, `RG17`, `RG24` — les cinq états de `D4`, et eux seuls. `RELU_PARTIEL` est apparu à l'étape 3 : entre « personne n'a rendu » et « tout est rendu », la note existe mais reste provisoire |
 | `ck_relectures_statut` | `relectures` | `CHECK (statut IN ('ATTRIBUEE','RENDUE','FIGEE'))` | `RG20`, `RG21` — attribution, rendu, figement |
 | `ck_relectures_note` | `relectures` | `CHECK (note IS NULL OR note BETWEEN 0 AND 20)` | `RG18` — note entière de 0 à 20 |
 | `ck_sessions_statut` | `sessions` | `CHECK (statut IN ('OUVERTE','CLOTUREE','FINALISEE'))` | `RG12` — les trois états, sans retour en arrière |

@@ -62,9 +62,15 @@ public class Exercice {
         this.statut = StatutExercice.NON_ATTRIBUABLE;
     }
 
-    /** La relecture a été rendue. */
-    public void devenirRelu() {
-        this.statut = StatutExercice.RELU;
+    /**
+     * Une relecture vient d'être rendue.
+     *
+     * <p>RG24 : l'exercice n'est pleinement relu que lorsque <em>toutes</em> les
+     * relectures attendues le sont. Tant qu'il en manque une, il reste
+     * {@link StatutExercice#RELU_PARTIEL} et sa note est provisoire.</p>
+     */
+    public void relectureRendue(int rendues, int attendues) {
+        this.statut = rendues >= attendues ? StatutExercice.RELU : StatutExercice.RELU_PARTIEL;
     }
 
     /** RG10 — le remplacement n'est permis que tant que la session est ouverte. */

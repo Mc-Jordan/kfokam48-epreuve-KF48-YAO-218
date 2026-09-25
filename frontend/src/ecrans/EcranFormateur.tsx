@@ -85,7 +85,14 @@ function TableauRecapitulatif() {
                     {/* La moyenne vient de l'API et n'est ni recalculée ni
                         réarrondie ici (RG24, contrainte F3). Vide veut dire
                         « aucune note reçue », ce qui n'est pas zéro. */}
-                    <td>{ligne.moyenne ?? '—'}</td>
+                    <td>
+                      {ligne.moyenne ?? '—'}
+                      {/* RG26 — une moyenne qui agrège une note pas encore
+                          définitive ne doit pas se lire comme acquise. */}
+                      {ligne.moyenne !== null && ligne.moyenneProvisoire && (
+                        <em title="Au moins un exercice attend sa seconde relecture"> (provisoire)</em>
+                      )}
+                    </td>
                     <td>{ligne.relecturesEnAttente > 0 ? <strong>{ligne.relecturesEnAttente}</strong> : 0}</td>
                   </tr>
                 ))}

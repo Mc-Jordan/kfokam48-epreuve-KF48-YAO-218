@@ -63,8 +63,10 @@ class RelectureIT extends TestPostgres {
         Session session = sessions.save(Session.ouvrir(promotion, "Algorithmique", "ABC234", maintenant));
         sessionId = session.getId();
 
-        // Deux étudiants présents, deux exercices : chacun relit celui de l'autre.
-        for (int i = 1; i <= 2; i++) {
+        // Trois étudiants présents, trois exercices. Depuis l'étape 3, chaque
+        // exercice reçoit DEUX relecteurs : il faut donc au moins trois présents
+        // pour que la règle s'applique pleinement (RG15, RG17).
+        for (int i = 1; i <= 3; i++) {
             Etudiant etudiant = etudiants.save(new Etudiant(promotion, "Étudiant " + i));
             presences.save(Presence.enregistrer(session, etudiant, SourcePresence.ETUDIANT, maintenant));
             exercices.save(Exercice.deposer(session, etudiant, "https://exemple.cm/tp/" + i, maintenant));
@@ -75,15 +77,16 @@ class RelectureIT extends TestPostgres {
     }
 
     @Test
-    @DisplayName("200 — la relecture est rendue et l'exercice passe à RELU")
+    @DisplayName("RG24 — une seule relecture rendue : l'exercice passe à RELU_PARTIEL")
     void devraitRendreLaRelecture() throws Exception {
         mockMvc.perform(rendre(relecture.getId(), 15, "Bon travail, structure claire."))
                 .andExpect(status().isOk());
 
         Relecture rendue = relectures.findById(relecture.getId()).orElseThrow();
         assertThat(rendue.getNote()).isEqualTo((short) 15);
+        // Le second relecteur n'a pas rendu : la note existe mais n'est pas définitive.
         assertThat(exercices.findById(rendue.getExercice().getId()).orElseThrow().getStatut())
-                .isEqualTo(StatutExercice.RELU);
+                .isEqualTo(StatutExercice.RELU_PARTIEL);
     }
 
     @Test
@@ -150,7 +153,8 @@ class RelectureIT extends TestPostgres {
     void devraitListerLesRelecturesDuRelecteur() throws Exception {
         mockMvc.perform(get("/api/relectures").param("relecteurId", relecture.getRelecteur().getId().toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
+                // RG16 — chaque étudiant relit désormais deux exercices par séance.
+                .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].lien").isNotEmpty())
                 .andExpect(jsonPath("$[0].sessionTitre").value("Algorithmique"))
                 .andExpect(jsonPath("$[0].statut").value("ATTRIBUEE"));
@@ -183,9 +187,11 @@ class RelectureIT extends TestPostgres {
         String corps = mockMvc.perform(
                         get("/api/exercices/{id}/relecture", relecture.getExercice().getId()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.note").value(16))
-                .andExpect(jsonPath("$.commentaire").value("Bien construit."))
-                .andExpect(jsonPath("$.statut").value("RELU"))
+                .andExpect(jsonPath("$.note").value(16.00))
+                .andExpect(jsonPath("$.commentaires[0]").value("Bien construit."))
+                // Une seule des deux relectures est rendue : la note est provisoire.
+                .andExpect(jsonPath("$.provisoire").value(true))
+                .andExpect(jsonPath("$.statut").value("RELU_PARTIEL"))
                 .andExpect(jsonPath("$.relecteurId").doesNotExist())
                 .andExpect(jsonPath("$.relecteur").doesNotExist())
                 .andReturn().getResponse().getContentAsString();
@@ -204,7 +210,59 @@ class RelectureIT extends TestPostgres {
         mockMvc.perform(get("/api/exercices/{id}/relecture", relecture.getExercice().getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("EN_ATTENTE_RELECTURE"))
-                .andExpect(jsonPath("$.note").doesNotExist());
+                .andExpect(jsonPath("$.note").doesNotExist())
+                .andExpect(jsonPath("$.relecturesRendues").value(0))
+                .andExpect(jsonPath("$.commentaires").isEmpty());
+    }
+
+    @Test
+    @DisplayName("RG24 — les deux relectures rendues : la note est leur moyenne, et elle est définitive")
+    void devraitMoyennerLesDeuxRelectures_RG24() throws Exception {
+        Long exerciceId = relecture.getExercice().getId();
+        List<Relecture> lesDeux = relectures.findByExerciceId(exerciceId);
+        assertThat(lesDeux).as("RG15 — deux relecteurs par exercice").hasSize(2);
+
+        mockMvc.perform(rendre(lesDeux.get(0).getId(), 12, "Structure à revoir."))
+                .andExpect(status().isOk());
+
+        // Une seule rendue : la note s'affiche déjà, mais provisoire.
+        mockMvc.perform(get("/api/exercices/{id}/relecture", exerciceId))
+                .andExpect(jsonPath("$.note").value(12.00))
+                .andExpect(jsonPath("$.provisoire").value(true))
+                .andExpect(jsonPath("$.relecturesRendues").value(1))
+                .andExpect(jsonPath("$.relecturesAttendues").value(2))
+                .andExpect(jsonPath("$.statut").value("RELU_PARTIEL"));
+
+        mockMvc.perform(rendre(lesDeux.get(1).getId(), 18, "Très bon travail."))
+                .andExpect(status().isOk());
+
+        // Les deux rendues : moyenne de 12 et 18, définitive.
+        mockMvc.perform(get("/api/exercices/{id}/relecture", exerciceId))
+                .andExpect(jsonPath("$.note").value(15.00))
+                .andExpect(jsonPath("$.provisoire").value(false))
+                .andExpect(jsonPath("$.relecturesRendues").value(2))
+                .andExpect(jsonPath("$.statut").value("RELU"))
+                .andExpect(jsonPath("$.commentaires.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("RG22 — l'ordre des commentaires ne dit pas qui a rendu en premier")
+    void devraitNePasTrahirLOrdreDeRendu_RG22() throws Exception {
+        Long exerciceId = relecture.getExercice().getId();
+        List<Relecture> lesDeux = relectures.findByExerciceId(exerciceId);
+
+        // Le second relecteur rend d'abord, le premier ensuite.
+        mockMvc.perform(rendre(lesDeux.get(1).getId(), 10, "AAA rendu en premier."))
+                .andExpect(status().isOk());
+        mockMvc.perform(rendre(lesDeux.get(0).getId(), 20, "ZZZ rendu en second."))
+                .andExpect(status().isOk());
+
+        // L'ordre rendu est alphabétique, pas chronologique : savoir qui a rendu
+        // en premier suffit souvent à le reconnaître dans une promotion.
+        mockMvc.perform(get("/api/exercices/{id}/relecture", exerciceId))
+                .andExpect(jsonPath("$.commentaires[0]").value("AAA rendu en premier."))
+                .andExpect(jsonPath("$.commentaires[1]").value("ZZZ rendu en second."))
+                .andExpect(jsonPath("$.note").value(15.00));
     }
 
     @Test

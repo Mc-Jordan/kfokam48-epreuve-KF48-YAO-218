@@ -249,10 +249,30 @@ function MaNote() {
         <div role="status">
           {/* RG22 — l'identité du relecteur n'est ni affichée, ni même reçue :
               le schéma de réponse ne la comporte pas. */}
-          {recue.statut === 'RELU' ? (
+          {recue.note !== null && recue.note !== undefined ? (
             <>
-              <p><strong>Note : {recue.note} / 20</strong></p>
-              <p>{recue.commentaire}</p>
+              <p>
+                <strong>Note : {recue.note} / 20</strong>
+                {/* RG26 — le client a demandé explicitement que la mention figure.
+                    Une note provisoire affichée comme définitive serait pire que
+                    pas de note du tout : l'étudiant croirait la relecture finie. */}
+                {recue.provisoire && <em> — provisoire</em>}
+              </p>
+              {recue.provisoire && (
+                <p>
+                  <small>
+                    {recue.relecturesRendues} relecture sur {recue.relecturesAttendues} rendue.
+                    {' '}La note changera quand la seconde arrivera.
+                  </small>
+                </p>
+              )}
+              <ul>
+                {recue.commentaires.map((commentaire, rang) => (
+                  // L'index sert de clé faute d'identifiant : en donner un
+                  // permettrait de rapprocher un commentaire de son auteur (RG22).
+                  <li key={rang}>{commentaire}</li>
+                ))}
+              </ul>
             </>
           ) : recue.statut === 'NON_ATTRIBUABLE' ? (
             <p>Aucun relecteur ne pouvait être désigné pour cet exercice.</p>

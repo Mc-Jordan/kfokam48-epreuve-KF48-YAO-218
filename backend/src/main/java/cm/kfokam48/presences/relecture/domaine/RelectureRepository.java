@@ -5,13 +5,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface RelectureRepository extends JpaRepository<Relecture, Long> {
 
     List<Relecture> findBySessionId(Long sessionId);
 
-    Optional<Relecture> findByExerciceId(Long exerciceId);
+    /** Toutes les relectures d'un exercice — deux depuis l'étape 3 (RG15). */
+    List<Relecture> findByExerciceId(Long exerciceId);
 
     /**
      * Les relectures d'un relecteur, <strong>avec</strong> leur exercice et leur

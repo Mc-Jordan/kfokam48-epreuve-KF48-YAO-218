@@ -16,6 +16,12 @@ public record LigneTableau(
         long presences,
         long exercicesDeposes,
         Double moyenne,
-        long relecturesEnAttente
+        long relecturesEnAttente,
+        /**
+         * Vrai dès qu'au moins un exercice de l'étudiant n'a pas reçu toutes ses
+         * relectures : la moyenne agrège alors une note qui peut encore changer
+         * (RG26). Le formateur doit pouvoir le distinguer d'une moyenne définitive.
+         */
+        boolean moyenneProvisoire
 ) {
 }
