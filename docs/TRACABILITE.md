@@ -45,19 +45,22 @@ Toute règle doit être portée par au moins une opération **et** vérifiée pa
 | `RG12` trois états de session | contrainte `ck_sessions_statut` | test : transitions et refus | #6, #12 |
 | `RG13` la clôture ferme les dépôts | `POST /api/sessions/{id}/cloture` | test : dépôt refusé après clôture | #6 |
 | `RG14` tirage parmi les présents | service d'attribution | **test unitaire** | #6 |
-| `RG15` un relecteur par exercice | contrainte `uq_relectures_exercice` | test d'intégration | #6 |
-| `RG16` au plus une relecture par étudiant | service d'attribution | **test unitaire**, cas 3 présents 3 exercices | #6 |
-| `RG17` `NON_ATTRIBUABLE` | statut de l'exercice | **test unitaire**, cas à 1 présent | #6 |
+| `RG15` **deux** relecteurs par exercice | contrainte `uq_relectures_exercice_relecteur` | **test unitaire**, cinquante tirages | #42 |
+| `RG16` **au plus deux** relectures par étudiant | service d'attribution — plus de contrainte, voir `D2` | **test unitaire**, cas 3 présents 3 exercices | #42 |
+| `RG17` attribution **au mieux** | statut de l'exercice | **test unitaire**, cas à 1, 2 et 3 présents | #42 |
 | `RG18` note entière 0–20 | contrainte `ck_relectures_note` + validation | test d'intégration `400 NOTE_INVALIDE` | #8 |
 | `RG19` jamais son propre exercice | service, vérifié à l'attribution et au rendu | **test unitaire** + `403 AUTO_RELECTURE` | #6, #8 |
 | `RG20` relecture modifiable avant finalisation | `POST /api/relectures/{id}` → `200` | test : deux envois successifs | #8 |
 | `RG21` figement à la finalisation | `POST /api/sessions/{id}/finalisation` | test : `409` après finalisation | #8, #12 |
 | `RG22` anonymat du relecteur | schéma `RelectureRecue` du contrat | test : aucun identifiant dans la réponse | #13 |
 | `RG23` attente visible | statut `EN_ATTENTE_RELECTURE`, champ `relecturesEnAttente` | test d'intégration sur le tableau | #9, #13 |
-| `RG24` moyenne calculée par le serveur | `GET /api/tableau` | test : moyenne vide sans note | #9 |
+| `RG24` moyenne **des deux** relectures | `GET /api/tableau`, `GET /api/exercices/{id}/relecture` | test : 12 et 18 → 15 ; une seule rendue → provisoire | #43 |
+| `RG26` note provisoire signalée | schéma de réponse et écrans | test : le champ existe et l'écran l'affiche | #43, #44 |
 | `RG25` format d'erreur imposé | `@RestControllerAdvice` | test parcourant les 21 codes | #16 |
 
-**Vingt-cinq règles, vingt-cinq lignes portées et vérifiées. Aucune ligne incomplète.**
+**Vingt-six règles, vingt-six lignes portées et vérifiées. Aucune ligne incomplète.**
+
+> `RG16` est la seule règle qui ne soit plus tenue par une contrainte de base mais par l'algorithme d'attribution. « Au plus deux relectures par étudiant et par séance » ne s'exprime pas en SQL déclaratif sans compter des lignes. C'est un recul assumé, signalé ici plutôt que découvert plus tard.
 
 ## Exigences non fonctionnelles
 

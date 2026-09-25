@@ -13,7 +13,7 @@ erDiagram
     ETUDIANTS  ||--o{ PRESENCES : "est presente a"
     SESSIONS   ||--o{ EXERCICES : "recoit"
     ETUDIANTS  ||--o{ EXERCICES : "depose"
-    EXERCICES  ||--o| RELECTURES : "est relu par au plus une"
+    EXERCICES  ||--o{ RELECTURES : "est relu par deux pairs"
     ETUDIANTS  ||--o{ RELECTURES : "relit"
     SESSIONS   ||--o{ RELECTURES : "porte"
     ETUDIANTS  ||--o{ TENTATIVES_PRESENCE : "tente"
@@ -61,7 +61,7 @@ erDiagram
 
     RELECTURES {
         bigserial   id PK
-        bigint      exercice_id FK "NOT NULL, UNIQUE -- RG15"
+        bigint      exercice_id FK "NOT NULL -- deux relectures par exercice, RG15"
         bigint      session_id FK "NOT NULL -- denormalise, verrouille par FK composite -- RG16"
         bigint      relecteur_id FK "NOT NULL -- jamais expose en JSON, RG22"
         smallint    note "NULL, CHECK between 0 and 20 -- RG18"
@@ -89,8 +89,8 @@ Une règle d'unicité absente d'ici sera absente de la migration. Chacune est do
 | `uq_sessions_code` | `sessions` | `UNIQUE (code)` | `RG2` — le code identifie la session à lui seul |
 | `uq_presences_session_etudiant` | `presences` | `UNIQUE (session_id, etudiant_id)` | `RG3` — une présence par étudiant et par session, source du `409 DEJA_PRESENT` |
 | `uq_exercices_session_etudiant` | `exercices` | `UNIQUE (session_id, etudiant_id)` | `RG7` — un exercice par étudiant et par session, source du `409 EXERCICE_DEJA_DEPOSE` |
-| `uq_relectures_exercice` | `relectures` | `UNIQUE (exercice_id)` | `RG15` — un exercice reçoit au plus un relecteur |
-| `uq_relectures_session_relecteur` | `relectures` | `UNIQUE (session_id, relecteur_id)` | `RG16` — un étudiant relit au plus un exercice par session |
+| `uq_relectures_exercice_relecteur` | `relectures` | `UNIQUE (exercice_id, relecteur_id)` | `RG15` — un même étudiant ne relit pas deux fois le même exercice. L'unicité ne porte plus sur le seul exercice : il en reçoit désormais deux |
+| *(supprimée en V3)* uq_relectures_session_relecteur | `relectures` | — | `RG16` a changé : un étudiant relit désormais **deux** exercices par session. La contrainte, qui en interdisait un second, devait disparaître ; la limite à deux est tenue par l'algorithme d'attribution et vérifiée par test |
 | `fk_relectures_exercice_session` | `relectures` | `FOREIGN KEY (exercice_id, session_id) REFERENCES exercices (id, session_id)` | verrouille la dénormalisation : `relectures.session_id` ne peut pas diverger de celle de son exercice |
 | `uq_exercices_id_session` | `exercices` | `UNIQUE (id, session_id)` | cible de la clé étrangère composite ci-dessus |
 | `ck_exercices_statut` | `exercices` | `CHECK (statut IN ('DEPOSE','EN_ATTENTE_RELECTURE','RELU','NON_ATTRIBUABLE'))` | `RG13`, `RG17` — les quatre états de `D4`, et eux seuls |
@@ -124,7 +124,8 @@ porte une garantie que le diagramme ne montre pas.
 - **Pas de table `relecteur`.** Le rôle naît de `relectures.relecteur_id`, conformément à la section 2 du cahier des charges. L'anonymat de `Q8` est alors tenu par le format de réponse : `relecteur_id` n'est exposé par aucun DTO destiné à l'auteur.
 - **`note` et `commentaire` sont nullables.** Une relecture existe dès l'attribution, avant d'être rendue : c'est cet état `ATTRIBUEE` qui matérialise l'attente visible du formateur exigée par `Q11` et `RG23`.
 - **Le statut de l'exercice est dérivé mais stocké.** `EN_ATTENTE_RELECTURE`, `RELU` et `NON_ATTRIBUABLE` pourraient se calculer, mais `NON_ATTRIBUABLE` n'est pas déductible après coup — l'absence de relecteur éligible est un fait daté de la clôture (`RG17`).
-- **`relectures` porte `session_id`, en connaissance de cause.** La colonne est redondante — elle se déduit de `exercices.session_id` — mais sans elle `RG16` n'est exprimable par aucune contrainte : `UNIQUE (exercice_id, relecteur_id)` ne contraint rien de plus que `UNIQUE (exercice_id)`, qui existe déjà. La dénormalisation ne peut pas se désynchroniser : la clé étrangère composite `(exercice_id, session_id)` vers `exercices (id, session_id)` interdit à la base d'accepter une relecture dont la session contredirait celle de son exercice. Une règle tenue par le schéma survit à un bogue du service ; une règle tenue par le service seul, non.
+- **`relectures` porte toujours `session_id`, mais pour une autre raison qu'au départ.** La colonne servait à exprimer `RG16` dans sa forme d'origine — un seul exercice relu par séance. Cette forme a disparu à l'étape 3. La colonne reste utile : la clé étrangère composite `(exercice_id, session_id)` vers `exercices (id, session_id)` interdit à la base d'accepter une relecture dont la séance contredirait celle de son exercice, et le figement à la finalisation se fait par séance en une requête. Nous la gardons donc, en sachant que sa justification a changé.
+- **`RG16` n'est plus tenue par une contrainte, mais par l'algorithme.** « Au plus deux relectures par étudiant et par séance » ne s'exprime pas en SQL déclaratif sans compter des lignes. La rotation circulaire +1 / +2 le garantit par construction, et des tests répétés le vérifient. C'est un recul assumé : une règle tenue par le schéma survit à un bogue du service, celle-ci non.
 - **`tentatives_presence` est une table à part.** Compter les échecs récents suppose de les conserver ; un compteur sur `etudiants` ne permettrait pas la remise à zéro par fenêtre glissante de `RG6`, ni un test reproductible.
 - **`timestamptz` partout.** L'expiration à quinze minutes (`RG1`) doit être insensible au fuseau du serveur.
 

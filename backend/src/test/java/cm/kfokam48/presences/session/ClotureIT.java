@@ -66,19 +66,36 @@ class ClotureIT extends TestPostgres {
     }
 
     @Test
-    @DisplayName("200 — la clôture attribue un relecteur à chaque exercice")
-    void devraitAttribuerLesRelecteurs() throws Exception {
+    @DisplayName("RG15 — la clôture attribue deux relecteurs à chaque exercice")
+    void devraitAttribuerDeuxRelecteursParExercice_RG15() throws Exception {
         Session session = seance("Algorithmique", 5, 5);
 
         mockMvc.perform(post("/api/sessions/{id}/cloture", session.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("CLOTUREE"))
+                // Le contrat compte des EXERCICES, pas des relectures : cinq et non dix.
                 .andExpect(jsonPath("$.exercicesAttribues").value(5))
                 .andExpect(jsonPath("$.exercicesNonAttribuables").value(0));
 
         assertThat(exercices.findBySessionId(session.getId()))
                 .allMatch(e -> e.getStatut() == StatutExercice.EN_ATTENTE_RELECTURE);
-        assertThat(relectures.findBySessionId(session.getId())).hasSize(5);
+        assertThat(relectures.findBySessionId(session.getId()))
+                .as("cinq exercices, deux relecteurs chacun").hasSize(10);
+    }
+
+    @Test
+    @DisplayName("RG17 — deux présents : un seul relecteur, l'exercice est tout de même attribué")
+    void devraitAttribuerPartiellementADeuxPresents_RG17() throws Exception {
+        Session session = seance("Séance à deux", 2, 2);
+
+        mockMvc.perform(post("/api/sessions/{id}/cloture", session.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.exercicesAttribues").value(2))
+                .andExpect(jsonPath("$.exercicesNonAttribuables").value(0));
+
+        // Un relecteur par exercice, faute de troisième présent : la note restera
+        // provisoire, mais refuser d'attribuer serait une régression sur v0.1.
+        assertThat(relectures.findBySessionId(session.getId())).hasSize(2);
     }
 
     @Test
@@ -96,15 +113,20 @@ class ClotureIT extends TestPostgres {
     }
 
     @Test
-    @DisplayName("RG16 — aucun étudiant ne reçoit deux relectures, la base le garantit")
-    void devraitNeJamaisAttribuerDeuxRelecturesAuMemeEtudiant_RG16() throws Exception {
+    @DisplayName("RG16 — chaque étudiant reçoit exactement deux relectures, jamais trois")
+    void devraitAttribuerAuPlusDeuxRelecturesParEtudiant_RG16() throws Exception {
         Session session = seance("Algorithmique", 8, 8);
 
         mockMvc.perform(post("/api/sessions/{id}/cloture", session.getId()))
                 .andExpect(status().isOk());
 
-        assertThat(relectures.findBySessionId(session.getId()).stream()
-                .map(r -> r.getRelecteur().getId()).distinct()).hasSize(8);
+        java.util.Map<Long, Long> parRelecteur = new java.util.HashMap<>();
+        relectures.findBySessionId(session.getId())
+                .forEach(r -> parRelecteur.merge(r.getRelecteur().getId(), 1L, Long::sum));
+
+        assertThat(parRelecteur).as("les huit présents relisent").hasSize(8);
+        assertThat(parRelecteur.values()).as("deux relectures chacun, la charge est équitable")
+                .allMatch(compte -> compte == 2);
     }
 
     @Test

@@ -117,16 +117,17 @@ Douze exigences. Les sept **Must** constituent le périmètre du jalon `v0.1`.
 | **RG12** | Une session parcourt trois états dans cet ordre : `OUVERTE`, `CLOTUREE`, `FINALISEE`. Aucun retour en arrière n'est possible | hypothèse — voir §7, contradiction sur le mot « clôturer » |
 | **RG13** | La clôture ferme les dépôts et déclenche l'attribution des relecteurs | hypothèse — arbitrage du trou n°2 |
 | **RG14** | L'attribution tire au hasard, pour chaque exercice, un relecteur parmi les étudiants présents à la session, l'auteur exclu | `Q7` et `Q5` |
-| **RG15** | Un exercice reçoit au plus un relecteur | `Q6` |
-| **RG16** | Un étudiant se voit attribuer au plus une relecture par session | hypothèse — le dépôt exigeant la présence (`RG8`), il y a toujours au moins autant de présents que d'exercices, donc une répartition sans doublon existe dès que deux étudiants sont présents |
-| **RG17** | Lorsqu'aucun relecteur éligible n'existe au moment de la clôture, l'exercice prend l'état `NON_ATTRIBUABLE`, qui est terminal et se distingue de l'attente au tableau du formateur | hypothèse — arbitrage du trou n°1 |
+| **RG15** | Un exercice reçoit **deux** relecteurs distincts, dont aucun n'est son auteur | changement de l'étape 3, contre `Q6` |
+| **RG16** | Un étudiant se voit attribuer **au plus deux** relectures par session, et jamais deux fois le même exercice | changement de l'étape 3 — deux relecteurs par exercice imposent deux relectures par étudiant en moyenne |
+| **RG17** | L'attribution se fait **au mieux** : trois présents ou plus donnent deux relecteurs ; deux présents n'en donnent qu'un, et l'exercice est attribué partiellement ; un seul présent laisse l'exercice `NON_ATTRIBUABLE`, état terminal distinct de l'attente | hypothèse — arbitrage du trou n°1, étendu à l'étape 3 |
 | **RG18** | Une note est un nombre entier compris entre 0 et 20 inclus | `Q9` |
 | **RG19** | Un étudiant ne peut jamais relire son propre exercice | `Q5` |
 | **RG20** | Une relecture rendue reste modifiable par son relecteur tant que la session n'est pas finalisée | `Q10`, retenue contre `Q15` — voir §7 |
 | **RG21** | La finalisation fige définitivement toutes les relectures de la session ; aucune modification n'est plus acceptée | `Q10` et `Q15` conciliées |
 | **RG22** | L'auteur d'un exercice voit la note et le commentaire reçus, jamais l'identité de son relecteur | `Q8` |
 | **RG23** | Un exercice attribué dont la relecture n'a pas été rendue reste en attente, et cette attente est visible du formateur | `Q11` |
-| **RG24** | La moyenne d'un étudiant est calculée par le serveur sur les seules relectures rendues le concernant, et vaut « vide » lorsqu'il n'en a aucune | `Q16` et contrainte `F3` |
+| **RG24** | La note d'un exercice est la **moyenne de ses deux relectures rendues**. Quand une seule est rendue, cette note s'applique mais reste **provisoire**. La moyenne d'un étudiant est calculée par le serveur et vaut « vide » lorsqu'il n'a reçu aucune note | `Q16`, contrainte `F3`, changement de l'étape 3 |
+| **RG26** | Une note provisoire est signalée comme telle partout où elle est affichée, et le motif en est donné | changement de l'étape 3 |
 | **RG25** | Toutes les réponses d'erreur, sans exception, portent le corps `{ code, message }`, le code étant un identifiant stable en majuscules et le message une phrase en français | contrat |
 
 *Ces vingt-cinq règles sont citées par leur référence dans les issues, dans les messages de commit et dans les noms de tests. Une règle qu'on ne peut pas citer est une règle qu'on oublie.*
@@ -145,6 +146,7 @@ Une seule des seize réponses n'apporte rien d'exploitable.
 
 | Réponses en conflit | Ce que j'ai choisi | Pourquoi |
 |---|---|---|
+| `Q6` — « Combien de relecteurs par exercice ? **Un seul.** » **contre** le changement de l'étape 3 — « chaque exercice est relu par **deux pairs différents** » | **Le changement** : deux relecteurs (`RG15`) | Le client revient lui-même sur `Q6`, et il dit pourquoi : « quand il ne rend rien, l'étudiant n'a aucune note ». `Q6` répondait à une question de dimensionnement, le changement répond à un défaut constaté en usage. Une réponse démentie par l'expérience de son auteur ne se défend pas. `Q11` avait d'ailleurs déjà signalé le symptôme — le relecteur défaillant — sans qu'on en tire la conséquence |
 | `Q10` — « le relecteur peut corriger sa note tant que le formateur n'a pas clôturé la session » **contre** `Q15` — « la note est définitive une fois envoyée, il ne peut plus y revenir » | **`Q10`** : la relecture reste modifiable, jusqu'à un acte explicite du formateur (`RG20`, `RG21`) | `Q10` décrit un comportement daté et vérifiable, borné par un événement de gestion réel ; `Q15` n'énonce qu'une intention morale — « c'est plus honnête pour tout le monde » — sans dire à quel instant elle s'applique. `Q11` confirme par ailleurs que le formateur pilote la fin de vie d'une session. Un client qui affirme deux choses opposées veut le plus souvent la plus permissive, assortie d'un point de non-retour : c'est exactement ce que produit la finalisation. **`Q15` n'est pas abandonnée, elle est déplacée** : la note devient définitive, mais à la finalisation plutôt qu'à l'envoi |
 | Le mot **« clôturer »** désigne deux actes différents : en `Q12` il ferme les dépôts, en `Q10` il met fin aux corrections. Combiné à l'attribution des relecteurs au moment de la clôture, un seul événement rendrait `Q10` inapplicable — les relectures n'existeraient qu'après lui | **Deux événements distincts** : la **clôture** ferme les dépôts et déclenche l'attribution ; la **finalisation** fige les relectures (`RG12`) | Le client emploie un seul mot pour deux actes de gestion qui ne peuvent pas être simultanés. Les nommer séparément est le seul moyen de satisfaire `Q10` et `Q12` en même temps, sans trahir ni l'une ni l'autre. Le coût est d'un état de plus dans le cycle de vie et d'un bouton de plus côté formateur |
 
@@ -162,6 +164,16 @@ Une seule des seize réponses n'apporte rien d'exploitable.
 | **Comment l'étudiant choisit son nom** | `Q1` évoque une liste, sans dire d'où elle vient | Une opération de **listage des étudiants d'une promotion** est ajoutée au contrat | Sans elle, `Q1` est irréalisable : les trois écrans en dépendent |
 | **Comment l'auteur voit sa note** | `Q8` promet note et commentaire ; aucune opération du contrat ne les expose à l'étudiant | Une opération de **consultation de la relecture d'un exercice** est ajoutée, qui n'expose jamais `relecteur_id` | L'anonymat de `Q8` est tenu par construction, au niveau du format de réponse, et non par une règle applicative qu'on peut oublier |
 | **Comment le relecteur sait ce qu'il doit relire** | Aucune réponse ne le dit ; `Q16` ne compte ces relectures que pour le formateur | Une opération de **listage des relectures d'un relecteur** est ajoutée | Sans elle, l'écran relecteur exigé par la contrainte `F2` n'a aucune source de données |
+
+### Zones d'ombre ouvertes par le changement de l'étape 3
+
+Le client a changé le besoin sans combler aucun des trous que ce changement creuse.
+
+| Point | Ce que le client dit | Décision retenue | Conséquence |
+|---|---|---|---|
+| **Moins de trois présents.** Deux relecteurs distincts et non-auteurs en exigent trois | Rien. Il écrit « deux pairs différents » sans envisager qu'ils puissent manquer | **Au mieux** (`RG17`) : trois présents ou plus → deux relecteurs ; deux présents → un seul, attribution partielle, note provisoire à titre définitif ; un seul → `NON_ATTRIBUABLE` | Refuser d'attribuer sous trois présents serait une **régression** : en `v0.1`, une séance à deux étudiants produisait une relecture. Une relecture vaut mieux que zéro, et le client a lui-même demandé la mention « provisoire » pour ce genre de cas |
+| **Les séances déjà clôturées** n'ont qu'un relecteur | « À partir de maintenant » | **Inchangées.** La migration ajoute la possibilité d'un second relecteur sans retoucher l'existant | Réattribuer rétroactivement désignerait des relecteurs pour des séances closes depuis des jours et modifierait des moyennes déjà communiquées. La base remplie survit intacte à la migration, ce que le changement exige explicitement |
+| **Ce qui sort du périmètre.** Le changement est un `Must` qui arrive tard | Rien | **Aucune reprise de l'existant** : pas de rétroactivité, pas de réattribution manuelle par le formateur, pas de refonte de l'écran relecteur | Les douze exigences étant livrées, le coût réel de ce changement est dans l'analyse, la migration et le contrat. C'est là que va le temps. Un périmètre réduit et annoncé vaut mieux qu'un périmètre annoncé et non tenu |
 
 *Une hypothèse écrite est toujours acceptée. Une hypothèse silencieuse est une faute.*
 
@@ -269,6 +281,7 @@ Ils sont la traduction directe des règles de gestion et devront correspondre un
 | Version | Quand | Ce qui a changé et pourquoi |
 |---|---|---|
 | 1 | 25 septembre 2026 | Version initiale. Contradiction `Q10` / `Q15` tranchée en faveur de `Q10`, `Q15` déplacée sur la finalisation. Trois trous comblés : vivier de relecteurs vide, moment du tirage, dépôt sans présence. `Q3` écartée |
+| 3 | 25 septembre 2026 | **Conséquence de l'étape 3.** Le client revient sur `Q6` : chaque exercice est désormais relu par **deux** pairs, et la note retenue est la moyenne des deux, provisoire tant qu'une seule est rendue. `RG15`, `RG16`, `RG17` et `RG24` sont réécrites, `RG26` est créée. `Q6` passe des réponses exploitables aux contradictions tranchées. Trois zones d'ombre nouvelles sont comblées et écrites en §7 : vivier de moins de trois présents, sort des séances déjà clôturées, et ce qui sort du périmètre. `D2` et `D4` corrigés en conséquence |
 | 2 | 25 septembre 2026 | Le sujet passe de six à cinq étapes : l'épreuve Git sur dépôt fourni est supprimée, « Soumettre » devient l'étape 5. L'enveloppe se demande au surveillant, il n'y a plus de script. « Ticket » et « issue » désignaient la même chose : un seul terme est retenu. Barème révisé — Git 30 points entièrement sur ce dépôt, produit 17. Le besoin, le contrat et les contraintes techniques sont inchangés : §1 à §9 ne bougent pas |
 
 *L'étape 3 rendra une partie de ce document faux. Il faudra revenir le corriger et le noter ici.*

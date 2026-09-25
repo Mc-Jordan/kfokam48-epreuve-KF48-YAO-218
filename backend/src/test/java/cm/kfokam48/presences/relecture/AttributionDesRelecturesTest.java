@@ -15,8 +15,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,6 +51,43 @@ class AttributionDesRelecturesTest {
     }
 
     @Test
+    @DisplayName("RG17 — deux présents : un seul relecteur possible, attribution partielle")
+    void devraitAttribuerUnSeulRelecteurADeuxPresents_RG17() {
+        Etudiant awa = etudiant(1L, "Awa Njoya");
+        Etudiant biloa = etudiant(2L, "Biloa Manga");
+        Exercice deAwa = exercice(awa);
+
+        var resultat = attribution.attribuer(List.of(deAwa), List.of(awa, biloa), MIDI);
+
+        // Deux relecteurs distincts exigent trois présents. Refuser d'attribuer
+        // serait une régression : en v0.1 cette séance produisait une relecture.
+        assertThat(resultat.attribuees()).hasSize(1);
+        assertThat(resultat.nonAttribuables()).isEmpty();
+        assertThat(resultat.attribuees().getFirst().getRelecteur().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("RG15 — trois présents : chaque exercice reçoit deux relecteurs distincts")
+    void devraitAttribuerDeuxRelecteursDesTroisPresents_RG15() {
+        List<Etudiant> presents = etudiants(3);
+        List<Exercice> exercices = presents.stream().map(this::exercice).toList();
+
+        var resultat = attribution.attribuer(exercices, presents, MIDI);
+
+        assertThat(resultat.attribuees()).hasSize(6);   // trois exercices, deux relecteurs
+        assertThat(resultat.nonAttribuables()).isEmpty();
+        for (Exercice exercice : exercices) {
+            List<Long> relecteurs = resultat.attribuees().stream()
+                    .filter(r -> r.getExercice() == exercice)
+                    .map(r -> r.getRelecteur().getId())
+                    .toList();
+            assertThat(relecteurs).as("deux relecteurs, et deux personnes différentes")
+                    .hasSize(2).doesNotHaveDuplicates()
+                    .doesNotContain(exercice.getEtudiant().getId());
+        }
+    }
+
+    @Test
     @DisplayName("RG19 — deux présents : chacun relit l'autre, jamais lui-même")
     void devraitCroiserLesDeuxSeulsPresents_RG19() {
         Etudiant awa = etudiant(1L, "Awa Njoya");
@@ -67,42 +106,56 @@ class AttributionDesRelecturesTest {
     }
 
     @RepeatedTest(value = 50, name = "tirage {currentRepetition}/{totalRepetitions}")
-    @DisplayName("RG14, RG16, RG19 — sur cinquante tirages, aucune auto-relecture ni doublon")
-    void devraitToujoursRespecterLesTroisRegles_RG14_RG16_RG19() {
+    @DisplayName("RG14, RG15, RG16, RG19 — sur cinquante tirages, les quatre règles tiennent")
+    void devraitToujoursRespecterLesQuatreRegles_RG14_RG15_RG16_RG19() {
         List<Etudiant> presents = etudiants(12);
         List<Exercice> exercices = presents.stream().map(this::exercice).toList();
 
         var resultat = attribution.attribuer(exercices, presents, MIDI);
 
         assertThat(resultat.nonAttribuables()).isEmpty();
-        assertThat(resultat.attribuees()).hasSize(12);
+        assertThat(resultat.attribuees()).as("douze exercices, deux relecteurs chacun").hasSize(24);
 
-        Set<Long> relecteursUtilises = new HashSet<>();
+        Map<Long, Long> relecturesParEtudiant = new HashMap<>();
+        Map<Exercice, Set<Long>> relecteursParExercice = new HashMap<>();
+
         for (Relecture relecture : resultat.attribuees()) {
             Long relecteurId = relecture.getRelecteur().getId();
-            Long auteurId = relecture.getExercice().getEtudiant().getId();
+            Exercice exercice = relecture.getExercice();
 
-            assertThat(relecteurId).as("RG19 — jamais son propre exercice").isNotEqualTo(auteurId);
-            assertThat(relecteursUtilises.add(relecteurId))
-                    .as("RG16 — au plus une relecture par étudiant").isTrue();
+            assertThat(relecteurId).as("RG19 — jamais son propre exercice")
+                    .isNotEqualTo(exercice.getEtudiant().getId());
             assertThat(presents).as("RG14 — le relecteur est présent")
                     .anyMatch(e -> e.getId().equals(relecteurId));
+
+            relecturesParEtudiant.merge(relecteurId, 1L, Long::sum);
+            assertThat(relecteursParExercice.computeIfAbsent(exercice, e -> new HashSet<>()).add(relecteurId))
+                    .as("RG15 — les deux relecteurs d'un exercice sont deux personnes").isTrue();
         }
+
+        assertThat(relecteursParExercice.values()).as("RG15 — deux relecteurs par exercice")
+                .allMatch(r -> r.size() == 2);
+        assertThat(relecturesParEtudiant.values()).as("RG16 — au plus deux relectures par étudiant")
+                .allMatch(compte -> compte <= 2);
     }
 
     @ParameterizedTest(name = "{0} présents, tous déposants")
-    @ValueSource(ints = {2, 3, 5, 10, 60})
-    @DisplayName("RG16 — chaque exercice trouve un relecteur distinct, quelle que soit la taille")
-    void devraitAttribuerTousLesExercices_RG16(int taille) {
+    @ValueSource(ints = {3, 5, 10, 60})
+    @DisplayName("RG15, RG16 — deux relecteurs par exercice, quelle que soit la taille")
+    void devraitAttribuerDeuxRelecteursQuelleQueSoitLaTaille_RG15(int taille) {
         List<Etudiant> presents = etudiants(taille);
         List<Exercice> exercices = presents.stream().map(this::exercice).toList();
 
         var resultat = attribution.attribuer(exercices, presents, MIDI);
 
-        assertThat(resultat.attribuees()).hasSize(taille);
+        assertThat(resultat.attribuees()).hasSize(taille * 2);
         assertThat(resultat.nonAttribuables()).isEmpty();
-        assertThat(resultat.attribuees().stream().map(r -> r.getRelecteur().getId()).distinct())
-                .hasSize(taille);
+
+        Map<Long, Long> compteParRelecteur = new HashMap<>();
+        resultat.attribuees().forEach(r -> compteParRelecteur.merge(r.getRelecteur().getId(), 1L, Long::sum));
+        assertThat(compteParRelecteur.values())
+                .as("chacun relit exactement deux exercices — la charge est équitable")
+                .allMatch(compte -> compte == 2);
     }
 
     @Test
@@ -115,7 +168,8 @@ class AttributionDesRelecturesTest {
 
         var resultat = attribution.attribuer(exercices, presents, MIDI);
 
-        assertThat(resultat.attribuees()).hasSize(2);
+        // Deux exercices, deux relecteurs chacun, pris parmi les cinq présents.
+        assertThat(resultat.attribuees()).hasSize(4);
         assertThat(resultat.nonAttribuables()).isEmpty();
     }
 
