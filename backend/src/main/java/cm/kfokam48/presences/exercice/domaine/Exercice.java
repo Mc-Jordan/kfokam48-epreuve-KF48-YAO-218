@@ -49,6 +49,24 @@ public class Exercice {
         return exercice;
     }
 
+    /** RG13 — à la clôture, un relecteur a été tiré : l'exercice attend sa relecture. */
+    public void enAttenteDeRelecture() {
+        this.statut = StatutExercice.EN_ATTENTE_RELECTURE;
+    }
+
+    /**
+     * RG17 — à la clôture, aucun relecteur éligible n'existait. État terminal :
+     * l'attribution n'ayant lieu qu'une fois, plus rien ne peut le rattraper.
+     */
+    public void devenirNonAttribuable() {
+        this.statut = StatutExercice.NON_ATTRIBUABLE;
+    }
+
+    /** La relecture a été rendue. */
+    public void devenirRelu() {
+        this.statut = StatutExercice.RELU;
+    }
+
     /** RG10 — le remplacement n'est permis que tant que la session est ouverte. */
     public void remplacerLien(String nouveauLien, Instant maintenant) {
         this.lien = nouveauLien;
