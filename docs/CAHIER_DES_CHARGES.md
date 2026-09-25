@@ -245,15 +245,14 @@ Ils sont la traduction directe des règles de gestion et devront correspondre un
 | Étape | Ce que je vise | Repère |
 |---|---|---|
 | **1** | Le présent document, les quatre diagrammes, le contrat figé, le backlog en issues | `[JALON] analyse` |
-| **2** | Les sept exigences `Must`, une branche et une pull request par ticket, socle technique en premier ticket | `[JALON] v0.1`, étiquette `v0.1` |
-| **3** | Ouvrir l'enveloppe, ouvrir une issue **avant** de coder, reproduire le bug, versionner la migration, mettre à jour le contrat, re-prioriser par écrit, séparer le correctif de l'évolution, **corriger ce document et les diagrammes** | entrée au journal des révisions |
+| **2** | Les sept exigences `Must`, une branche et une pull request par issue, socle technique en première issue | `[JALON] v0.1`, étiquette `v0.1` |
+| **3** | Demander l'enveloppe au surveillant une fois `[JALON] v0.1` poussé, ouvrir une issue **avant** de coder, reproduire le bug, versionner la migration, mettre à jour le contrat, re-prioriser par écrit, séparer le correctif de l'évolution, **corriger ce document et les diagrammes** | entrée au journal des révisions |
 | **4** | Les `Should` restants selon le temps disponible, `CHANGELOG` cohérent, `README` testé depuis un clone vierge, backlog restant trié | `[JALON] v1.0`, étiquette `v1.0` |
-| **5** | Épreuve Git, sur un second dépôt strictement séparé | — |
-| **6** | Relever les deux hash, vérifier les deux dépôts en navigation privée, soumettre | — |
+| **5** | Relever le hash final, vérifier le dépôt en navigation privée, soumettre avant 18h00 | — |
 
-**Si je prends du retard**, j'abandonne dans cet ordre, et je l'écris : `EF11` (consultation de sa note par l'étudiant — le formateur la voit déjà), puis `EF10` (finalisation — les relectures restent modifiables, ce qui est le comportement par défaut de `Q10`), puis `EF3` (limitation des tentatives — dégradation de confort, pas de blocage fonctionnel), puis `EF6` (remplacement du lien). **Je n'abandonne jamais** un `Must`, ni la mise à jour de l'analyse après l'étape 3 : le produit pèse quinze points, l'analyse trente-huit.
+**Si je prends du retard**, j'abandonne dans cet ordre, et je l'écris : `EF11` (consultation de sa note par l'étudiant — le formateur la voit déjà), puis `EF10` (finalisation — les relectures restent modifiables, ce qui est le comportement par défaut de `Q10`), puis `EF3` (limitation des tentatives — dégradation de confort, pas de blocage fonctionnel), puis `EF6` (remplacement du lien). **Je n'abandonne jamais** un `Must`, ni la mise à jour de l'analyse après l'étape 3 : le produit pèse dix-sept points, l'analyse trente-huit, et l'hygiène de l'historique Git trente à elle seule.
 
-**Definition of Done — un ticket est terminé quand :**
+**Definition of Done — une issue est terminée quand :**
 
 - Ses critères d'acceptation sont vérifiés un par un, et non supposés
 - Les règles `RGx` qu'il applique sont citées dans au moins un test nommé d'après elles
@@ -270,5 +269,6 @@ Ils sont la traduction directe des règles de gestion et devront correspondre un
 | Version | Quand | Ce qui a changé et pourquoi |
 |---|---|---|
 | 1 | 25 septembre 2026 | Version initiale. Contradiction `Q10` / `Q15` tranchée en faveur de `Q10`, `Q15` déplacée sur la finalisation. Trois trous comblés : vivier de relecteurs vide, moment du tirage, dépôt sans présence. `Q3` écartée |
+| 2 | 25 septembre 2026 | Le sujet passe de six à cinq étapes : l'épreuve Git sur dépôt fourni est supprimée, « Soumettre » devient l'étape 5. L'enveloppe se demande au surveillant, il n'y a plus de script. « Ticket » et « issue » désignaient la même chose : un seul terme est retenu. Barème révisé — Git 30 points entièrement sur ce dépôt, produit 17. Le besoin, le contrat et les contraintes techniques sont inchangés : §1 à §9 ne bougent pas |
 
 *L'étape 3 rendra une partie de ce document faux. Il faudra revenir le corriger et le noter ici.*
