@@ -59,13 +59,24 @@ Chaque entrée répond aux trois mêmes questions :
 
 ## Étape 3 — Enveloppe
 
-**Fait :**
+**Fait :** l'enveloppe apportait deux choses, traitées séparément — deux branches, deux séries de pull requests, comme elle l'exige. Le bug d'abord : issue #38, un test qui échoue poussé **avant** le correctif, puis le correctif. Le changement de besoin ensuite : issue parapluie #40, découpée en #41 analyse et schéma, #43 contrat et API, #44 frontend. Cinq pull requests, six issues fermées, deux migrations ajoutées — `V3`, `V4` — et une troisième pour le jeu de démonstration.
 
-**Bloqué :**
+**Bloqué :** *(à compléter — durée réelle)*. Le temps n'est pas parti où je l'attendais.
 
-**IA :**
+Le bug d'abord. Le client décrit deux étudiants côte à côte dont un seul apparaît. J'ai mesuré avant de corriger, et la mesure a démenti la lecture évidente : **deux étudiants distincts passent toujours**, dix rafales sur dix, huit fils en parallèle. Le défaut est ailleurs — un même étudiant qui envoie deux fois reçoit `500 ERREUR_INTERNE` au lieu de `409`. Aucune présence n'est perdue, la contrainte de `V1` protège la donnée ; c'est la **réponse** qui ment, et c'est pour ça que l'incident est incompréhensible des deux côtés. Sans la sonde, j'aurais corrigé un problème qui n'existait pas.
 
-**Ce que j'ai sorti du périmètre pour absorber le changement, et pourquoi :**
+Le découpage ensuite. J'avais prévu quatre issues pour le changement, j'en ai livré trois. `CoherenceD2MigrationTest` rend le diagramme `D2` et les migrations **indissociables** : mettre à jour l'un sans l'autre rend le build rouge. Les séparer imposait soit de fusionner une branche rouge, soit de désactiver le garde-fou. J'ai regroupé et écrit le motif dans les deux issues, plutôt que de le subir en silence.
+
+**IA :** *(à compléter — ce que j'ai demandé, dans mes mots)*. Ce que la vérification a rapporté, et qui n'aurait pas été vu autrement :
+
+- **La moyenne d'un étudiant moyennait les notes brutes.** Depuis que les exercices reçoivent deux relectures, un exercice relu deux fois pesait **double** face à ceux des séances d'avant le changement. `RG24` dit que la note d'un exercice est la moyenne de ses relectures, et que la moyenne de l'étudiant porte sur ses notes d'exercice : deux agrégations imbriquées, que JPQL ne sait pas exprimer. Requête passée en natif, toujours en un seul appel pour tenir `ENF2`.
+- **`exercicesAttribues` comptait les relectures.** Le formateur aurait vu dix exercices attribués là où il y en a cinq. Un test d'intégration l'a attrapé à la seconde où l'algorithme a changé.
+- **Le test de cohérence s'est révélé faux deux fois de suite.** Il ignorait d'abord les suppressions de contraintes ; corrigé, il considérait ensuite une contrainte supprimée puis recréée sous le même nom comme absente — exactement ce que fait `V4` pour élargir un `CHECK`. J'avais documenté cette limite en la créant ; elle a mordu à la migration suivante. Il rejoue désormais les instructions dans l'ordre, comme Flyway le fera.
+- **`D4` annonçait un statut que la contrainte n'autorisait pas.** Écart introduit par mon propre commit d'analyse, rattrapé par `V4`. Le garde-fou ne l'avait pas vu parce qu'il ne compare que les noms de contraintes, pas leur contenu — limite qui reste, et qui est maintenant écrite.
+- **Le décor d'un test ne créait que deux étudiants présents**, donc un seul relecteur par `RG17` : les nouvelles règles n'y étaient pas observables. Les tests passaient sans rien prouver.
+- **J'ai refusé une proposition.** L'IA plaçait la traduction des conflits de contrainte dans le seul `@RestControllerAdvice`. Elle n'aurait alors valu que pour les appels HTTP, et le test qui appelle le service directement serait resté rouge. La traduction vit au service ; le gestionnaire la garde en filet pour les violations qui surviennent au commit.
+
+**Ce que j'ai sorti du périmètre pour absorber le changement, et pourquoi :** **aucune reprise de l'existant.** Pas de réattribution rétroactive des séances déjà clôturées — le client écrit « à partir de maintenant », et réattribuer modifierait des moyennes déjà communiquées. Pas de réattribution manuelle par le formateur, qui aurait augmenté le périmètre alors qu'il faut le réduire. Pas de refonte de l'écran relecteur au-delà du minimum. Les douze exigences étant livrées à `v0.1`, le coût réel de ce changement était dans l'analyse, la migration et le contrat : c'est là que le temps est allé.
 
 ---
 
