@@ -4,6 +4,7 @@ import { ErreurApi } from '../api/client';
 import { useRequete } from '../api/useRequete';
 import { Erreur, Etat, Requete, Succes, Vide } from '../composants/Etat';
 import { ChoixEtudiant } from '../composants/ChoixEtudiant';
+import { Revelation } from '../composants/Revelation';
 import type { Exercice, RelectureRecue, SessionResume } from '../api/types';
 
 /**
@@ -30,9 +31,9 @@ export default function EcranEtudiant() {
 
       {etudiantId !== null && (
         <>
-          <MarquageDePresence etudiantId={etudiantId} />
-          <DepotDExercice etudiantId={etudiantId} />
-          <MaNote />
+          <Revelation><MarquageDePresence etudiantId={etudiantId} /></Revelation>
+          <Revelation retard={80}><DepotDExercice etudiantId={etudiantId} /></Revelation>
+          <Revelation retard={160}><MaNote /></Revelation>
         </>
       )}
     </section>
